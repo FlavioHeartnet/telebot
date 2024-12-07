@@ -15,6 +15,7 @@ export type PaymentParam = {
 }
 
 export default async function createPayment(req: PaymentParam){
+   
     try{
         const paymentResp = await payment.create({
             body: { 
@@ -28,7 +29,10 @@ export default async function createPayment(req: PaymentParam){
                 number: req.identification_number
             }}},
             requestOptions: { idempotencyKey: crypto.randomUUID() }
-        }) 
+        });
+        const info = await payment.get({id: paymentResp.id ?? 0})
+        info.status_detail
+        console.log(info.status_detail);
         return paymentResp;
     }catch(e){
         console.log(e);
