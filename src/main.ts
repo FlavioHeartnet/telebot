@@ -1,10 +1,8 @@
-import TelegramBot from 'node-telegram-bot-api';
+import TelegramBot, { SendMessageOptions, KeyboardButton } from 'node-telegram-bot-api';
 import dotenv from 'dotenv';
 
-// Load environment variables
 dotenv.config();
 
-// Bot token interface
 interface BotConfig {
     token: string;
     options: {
@@ -12,64 +10,101 @@ interface BotConfig {
     };
 }
 
-// Command handler type
-type CommandHandler = (msg: TelegramBot.Message) => void;
+const keyboardData1: KeyboardButton = {
+    text: "VIP",
+}
+const keyboardData2: KeyboardButton = {
+    text: "Suporte"
+}
+const keyboardData3: KeyboardButton = {
+    text: "Sobre"
+}
 
 class TelegramBotApp {
     private bot: TelegramBot;
+    private readonly mainKeyboard: SendMessageOptions = {
+        reply_markup: {
+            keyboard:  [
+                [keyboardData1],
+                [keyboardData2],
+                [keyboardData3]
+            ],
+            resize_keyboard: true,
+            one_time_keyboard: false
+        }
+    };
 
     constructor(config: BotConfig) {
         this.bot = new TelegramBot(config.token, config.options);
-        this.initializeCommands();
+        this.initializeHandlers();
     }
 
-    private initializeCommands(): void {
-        // Start command
-        this.handleCommand('start', (msg) => {
+    private initializeHandlers(): void {
+        // Start command - shows the main keyboard
+        this.bot.onText(/\/start/, (msg) => {
             const chatId = msg.chat.id;
-            this.bot.sendMessage(chatId, 
-                `Hello! I'm your TypeScript Telegram bot.
-                \nAvailable commands:
-                \n/start - Show this welcome message
-                \n/time - Get current time
-                \n/echo <message> - Echo your message`
+            this.bot.sendMessage(
+                chatId,
+                'Bem-vindo! Por favor, escolha uma das opções abaixo:',
+                this.mainKeyboard
             );
         });
 
-        // Time command
-        this.handleCommand('time', (msg) => {
-            const chatId = msg.chat.id;
-            const currentTime = new Date().toLocaleTimeString();
-            this.bot.sendMessage(chatId, `Current time is: ${currentTime}`);
-        });
-
-        // Echo command
-        this.handleCommand('echo', (msg) => {
-            const chatId = msg.chat.id;
-            const match = msg.text?.match(/\/echo (.+)/);
-            
-            if (match?.[1]) {
-                this.bot.sendMessage(chatId, match[1]);
-            } else {
-                this.bot.sendMessage(chatId, 'Please provide text to echo after the /echo command');
-            }
-        });
-
-        // Handle unknown commands
+        // Handle button responses
         this.bot.on('message', (msg) => {
-            if (msg.text?.startsWith('/')) {
-                const chatId = msg.chat.id;
-                this.bot.sendMessage(chatId, "I don't understand that command. Use /start to see available commands.");
+            const chatId = msg.chat.id;
+
+            switch (msg.text) {
+                case 'VIP':
+                    this.handleVIP(chatId);
+                    break;
+                case 'Suporte':
+                    this.handleSupport(chatId);
+                    break;
+                case 'Sobre':
+                    this.handleAbout(chatId);
+                    break;
             }
         });
     }
 
-    private handleCommand(command: string, handler: CommandHandler): void {
-        this.bot.onText(new RegExp(`^/${command}`), handler);
+    private handleVIP(chatId: number): void {
+        this.bot.sendMessage(
+            chatId,
+            'Área VIP 🌟\n\n' +
+            'Benefícios exclusivos para membros VIP:\n' +
+            '- Atendimento prioritário\n' +
+            '- Conteúdo exclusivo\n' +
+            '- Descontos especiais\n\n' +
+            'Para se tornar VIP, entre em contato com nosso suporte.'
+        );
+    }
+
+    private handleSupport(chatId: number): void {
+        this.bot.sendMessage(
+            chatId,
+            'Suporte 💬\n\n' +
+            'Como podemos ajudar?\n\n' +
+            'Entre em contato através de:\n' +
+            '📧 Email: suporte@exemplo.com\n' +
+            '📱 WhatsApp: +XX XX XXXX-XXXX\n' +
+            '⏰ Horário de atendimento: Seg-Sex, 9h-18h'
+        );
+    }
+
+    private handleAbout(chatId: number): void {
+        this.bot.sendMessage(
+            chatId,
+            'Sobre Nós ℹ️\n\n' +
+            'Somos uma empresa dedicada a fornecer o melhor serviço para nossos clientes.\n\n' +
+            '🌐 Website: www.exemplo.com\n' +
+            '📍 Localização: São Paulo, SP\n' +
+            '📱 Redes Sociais: @exemplo'
+        );
     }
 
     public start(): void {
-        console.log('Bot started...');
+        console.log('Bot iniciado com sucesso! Pressione Ctrl+C para encerrar.');
     }
 }
 
