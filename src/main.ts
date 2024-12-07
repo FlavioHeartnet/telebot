@@ -1,7 +1,6 @@
 import TelegramBot, { SendMessageOptions, KeyboardButton } from 'node-telegram-bot-api';
-import dotenv from 'dotenv';
+import { config } from './config';
 
-dotenv.config();
 
 interface BotConfig {
     token: string;
@@ -109,13 +108,13 @@ class TelegramBotApp {
 }
 
 // Configuration
-const config: BotConfig = {
-    token: process.env.TELEGRAM_BOT_TOKEN || '',
+const configuration: BotConfig = {
+    token: config.telegramBotKey || '',
     options: {
         polling: true
     }
 };
 
 // Start the bot
-const bot = new TelegramBotApp(config);
+const bot = new TelegramBotApp(configuration);
 bot.start();

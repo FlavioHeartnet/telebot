@@ -6,8 +6,12 @@
       "esModuleInterop": true,
       "skipLibCheck": true,
       "forceConsistentCasingInFileNames": true,
-      "outDir": "./dist"
+      "outDir": "./dist",
+      "allowImportingTsExtensions": true,
+      "emitDeclarationOnly": false,
+      "noEmit": true
     },
+    "types": ["node"],
     "include": ["src/**/*"],
     "exclude": ["node_modules"]
   }

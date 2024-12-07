@@ -5,7 +5,8 @@
   "scripts": {
     "start": "ts-node src/main.ts",
     "build": "tsc",
-    "dev": "ts-node-dev src/main.ts"
+    "dev": "ts-node-dev src/main.ts",
+    "test": "vitest"
   },
   "keywords": [],
   "author": "",
@@ -15,8 +16,12 @@
     "@types/node": "^22.10.1",
     "@types/node-telegram-bot-api": "^0.64.7",
     "dotenv": "^16.4.7",
+    "mercadopago": "^2.1.0",
     "node-telegram-bot-api": "^0.66.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.2"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.8"
   }
 }
