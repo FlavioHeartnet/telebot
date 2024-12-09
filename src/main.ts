@@ -51,6 +51,8 @@ class TelegramBotApp {
     constructor(config: BotConfig) {
         this.bot = new TelegramBot(config.token, config.options);
         this.initializeHandlers();
+
+        
     }
 
     private initializeHandlers(): void {
@@ -58,6 +60,7 @@ class TelegramBotApp {
         this.bot.onText(/\/start/, (msg) => {
             const chatId = msg.chat.id;
             this.sendMainMenu(chatId);
+            
         });
 
         this.bot.onText(/\/restart/, (msg) => {
@@ -174,7 +177,7 @@ class TelegramBotApp {
             buyer_email: userData.email,
             description: "My Product",
             paymentMethodId: "pix",
-            transaction_amount: 20,
+            transaction_amount: 1,
             identification_type: "cpf",
             identification_number: userData.cpf
         });
@@ -252,22 +255,30 @@ class TelegramBotApp {
         }
     
         // Here you would integrate with your PIX payment verification system
-        // This is a mock implementation
         try {
             // Mock verification response (replace with actual API call)
-            const paymentStatus = await checkPayment(payment.payment_id);
+            const paymentStatus = 'approved'; //await checkPayment(payment.payment_id);
     
             if (paymentStatus == 'approved') {
                 payment.status = 'completed';
-                await this.bot.editMessageCaption(
+                const inviteLink = await this.bot.createChatInviteLink(
+                    -4774094168, // Replace with your actual group ID or username
+                    {
+                        name: `VIP Member - ${new Date().toISOString()}`,
+                        expire_date: undefined, // Never expires
+                        member_limit: 1, // One-time use
+                        creates_join_request: false
+                    }
+                );
+                await this.bot.sendMessage(chatId, 
                     '✅ Pagamento aprovado com sucesso!\n\n' +
                     '🎉 Seu acesso VIP já está liberado.\n' +
-                    '📅 Data do pagamento: ' + payment.timestamp.toLocaleString(),
+                    '🌟 Bem-vindo ao NobleSpace VIP!\n\n' +
+                    '📱 Clique no botão abaixo para entrar no grupo exclusivo.\n',
                     {
-                        chat_id: chatId,
-                        message_id: messageId,
                         reply_markup: {
                             inline_keyboard: [
+                                [{ text: '🔓 Entrar no Grupo VIP', url: inviteLink.invite_link }],
                                 [{ text: 'Voltar ao Menu Principal ↩️', callback_data: 'back' }]
                             ]
                         }

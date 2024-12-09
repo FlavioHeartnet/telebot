@@ -7,7 +7,7 @@ export default async function checkPayment(payment_id: number){
     const payment = new Payment(client);
     const info = await payment.get({id: payment_id ?? 0});
     if(info.status == 'approved'){
-        await activatePlan(payment_id);
+        await activatePlan(payment_id, info.status_detail);
     }
 
     return info.status
