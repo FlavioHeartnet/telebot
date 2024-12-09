@@ -1,10 +1,16 @@
 import TelegramBot, {  InlineKeyboardMarkup, InlineKeyboardButton } from 'node-telegram-bot-api';
 import { config } from './config';
-import createPayment from './payment';
+import createPayment from './db/usecases/payment';
 import QRCode from 'qrcode';
 import UpdatePaymentWithChatId from './db/usecases/update_payment';
+import checkPayment from './db/usecases/check_payment';
 
-
+interface PaymentData {
+    payment_id: number;
+    pixCode: string;
+    timestamp: Date;
+    status: 'pending' | 'completed' | 'failed';
+}
 interface BotConfig {
     token: string;
     options: {
@@ -31,6 +37,7 @@ class TelegramBotApp {
     private bot: TelegramBot;
     // Store user data temporarily (in production, use a proper database)
     private userDataMap: Map<number, UserData> = new Map();
+    private paymentData: Map<number, PaymentData> = new Map();
     private readonly mainKeyboard: { reply_markup: InlineKeyboardMarkup } = {
         reply_markup: {
             inline_keyboard:  [
@@ -104,14 +111,11 @@ class TelegramBotApp {
                 case 'restart':
                     this.handleRestart(chatId);
                     break;
-                case 'checkpayment':
-                    this.handleCheckPayment(chatId);
+                case 'verify_payment':
+                    this.verifyPayment(chatId, messageId);
                     break;    
             }
         });
-    }
-    handleCheckPayment(chatId: number) {
-        
     }
     private handleUserInput(chatId: number, text: string, userData: UserData): void {
         if (userData.currentField === 'email') {
@@ -196,7 +200,14 @@ class TelegramBotApp {
         await this.bot.sendPhoto(chatId, qrCodeBuffer, {
             caption: message,
             parse_mode: 'Markdown',
-            reply_markup: {inline_keyboard: [backButton]}
+            reply_markup: {inline_keyboard: [this.getcheckPaymentButton(),backButton]}
+        });
+        // Store payment info for verification
+        this.paymentData.set(chatId, {
+            pixCode: pixCode ?? "",
+            timestamp: new Date(),
+            status: 'pending',
+            payment_id: paymentInfo.id ?? 0
         });
 
         // Clear user data
@@ -213,6 +224,91 @@ class TelegramBotApp {
             message_id: messageId,
             reply_markup: this.mainKeyboard.reply_markup
         });
+        this.paymentData.set(chatId, {
+            pixCode: "",
+            timestamp: new Date(),
+            status: 'failed',
+            payment_id: 0
+        });
+    }
+
+    private async verifyPayment(chatId: number, messageId: number): Promise<void> {
+        const payment = this.paymentData.get(chatId);
+        
+        if (!payment) {
+            await this.bot.editMessageCaption(
+                '❌ Desculpe, não foi possível encontrar os dados do pagamento. Por favor, tente novamente.',
+                {
+                    chat_id: chatId,
+                    message_id: messageId,
+                    reply_markup: {
+                        inline_keyboard: [
+                            [{ text: 'Voltar ao Menu Principal ↩️', callback_data: 'back' }]
+                        ]
+                    }
+                }
+            );
+            return;
+        }
+    
+        // Here you would integrate with your PIX payment verification system
+        // This is a mock implementation
+        try {
+            // Mock verification response (replace with actual API call)
+            const paymentStatus = await checkPayment(payment.payment_id);
+    
+            if (paymentStatus == 'approved') {
+                payment.status = 'completed';
+                await this.bot.editMessageCaption(
+                    '✅ Pagamento aprovado com sucesso!\n\n' +
+                    '🎉 Seu acesso VIP já está liberado.\n' +
+                    '📅 Data do pagamento: ' + payment.timestamp.toLocaleString(),
+                    {
+                        chat_id: chatId,
+                        message_id: messageId,
+                        reply_markup: {
+                            inline_keyboard: [
+                                [{ text: 'Voltar ao Menu Principal ↩️', callback_data: 'back' }]
+                            ]
+                        }
+                    }
+                );
+            } else {
+                payment.status = 'pending';
+                await this.bot.editMessageCaption(
+                    '⏳ Pagamento ainda não confirmado.\n\n' +
+                    'Por favor, verifique se:\n' +
+                    '• O pagamento foi realizado corretamente\n' +
+                    '• Aguarde alguns instantes e tente novamente\n\n' +
+                    '📝 Se o problema persistir, entre em contato com o suporte.',
+                    {
+                        chat_id: chatId,
+                        message_id: messageId,
+                        reply_markup: {
+                            inline_keyboard: [
+                                [{ text: '✅ Verificar Novamente', callback_data: 'verify_payment' }],
+                                [{ text: 'Voltar ao Menu Principal ↩️', callback_data: 'back' }]
+                            ]
+                        }
+                    }
+                );
+            }
+        } catch (error) {
+            console.error('Error verifying payment:', error);
+            await this.bot.editMessageCaption(
+                '❌ Erro ao verificar o pagamento. Por favor, tente novamente em instantes.',
+                {
+                    chat_id: chatId,
+                    message_id: messageId,
+                    reply_markup: {
+                        inline_keyboard: [
+                            [{ text: '✅ Tentar Novamente', callback_data: 'verify_payment' }],
+                            [{ text: 'Voltar ao Menu Principal ↩️', callback_data: 'back' }]
+                        ]
+                    }
+                }
+            );
+        }
     }
 
     private handlePix(chatId: number, messageId: number): void {
@@ -278,7 +374,9 @@ class TelegramBotApp {
     private getRestartButton() {
         return [{ text: 'Voltar ao Menu Principal ↩️', callback_data: 'restart' }]
     }
-                
+    private getcheckPaymentButton() {
+        return [{ text: '✅ Verificar Pagamento', callback_data: 'verify_payment' }]
+    }            
     // Validation helpers
     private validateEmail(email: string): boolean {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -358,3 +456,4 @@ const configuration: BotConfig = {
 // Start the bot
 const bot = new TelegramBotApp(configuration);
 bot.start();
+

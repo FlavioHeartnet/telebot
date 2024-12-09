@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import createPayment from "./payment.ts";
+import createPayment from "./db/usecases/payment.ts";
 
 
 test("Create Pix Info for payment", async () => {
@@ -7,7 +7,7 @@ test("Create Pix Info for payment", async () => {
         buyer_email: "flavionogueirabarros@gmail.com",
         description: "Test purchase",
         paymentMethodId: "pix",
-        transaction_amount: 100,
+        transaction_amount: 1,
         identification_number: "42324752816",
         identification_type: "cpf"
     });

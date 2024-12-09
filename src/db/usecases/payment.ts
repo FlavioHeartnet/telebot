@@ -1,7 +1,7 @@
 import { Payment, MercadoPagoConfig } from 'mercadopago';
 import dotenv from 'dotenv';
-import { config } from './config.ts';
-import { supabaseAdmin } from './db/supabase.ts';
+import { config } from '../../config.ts';
+import { supabaseAdmin } from '../supabase.ts';
 
 dotenv.config();
 const client = new MercadoPagoConfig({ accessToken: config.access_token ?? "" });
@@ -32,7 +32,6 @@ export default async function createPayment(req: PaymentParam){
             requestOptions: { idempotencyKey: crypto.randomUUID() }
         });
         const info = await payment.get({id: paymentResp.id ?? 0})
-        info.status_detail;
 
         const resp = await supabaseAdmin().from('payments').insert({
             created_at: new Date(),
@@ -41,7 +40,7 @@ export default async function createPayment(req: PaymentParam){
             payment_id: paymentResp.id,
             payment_status: info.status_detail,
         }); 
-        console.log(resp);
+        console.log(info);
         return paymentResp;
     }catch(e){
         console.log(e);
