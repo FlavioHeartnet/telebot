@@ -4,6 +4,7 @@ import createPayment from './db/usecases/payment';
 import QRCode from 'qrcode';
 import UpdatePaymentWithChatId from './db/usecases/update_payment';
 import checkPayment from './db/usecases/check_payment';
+import getPaymentInfoByTelegramId from './db/usecases/check_payment_user';
 
 interface PaymentData {
     payment_id: number;
@@ -22,6 +23,7 @@ interface UserData {
     cpf?: string;
     currentField?: 'email' | 'cpf';
     payment_id?: number;
+    telegram_id?: number; 
 }
 const keyboardData1: InlineKeyboardButton = {
     text: 'VIP 🌟', callback_data: 'vip'
@@ -83,7 +85,7 @@ class TelegramBotApp {
         this.bot.on('callback_query', (callbackQuery) => {
             const chatId = callbackQuery.message?.chat.id;
             const messageId = callbackQuery.message?.message_id;
-
+            const userid = callbackQuery.message?.from?.id
             if (!chatId || !messageId) return;
 
             // Answer the callback query to remove the loading state
@@ -94,13 +96,13 @@ class TelegramBotApp {
                     this.handlePix(chatId, messageId);
                     break;
                 case 'confirm_pix':
-                    this.confirmPixPayment(chatId, messageId);
+                    this.confirmPixPayment(chatId, messageId, userid);
                     break;
                 case 'cancel_pix':
                     this.cancelPixPayment(chatId, messageId);
                     break;
                 case 'vip':
-                    this.handleVIP(chatId, messageId);
+                    this.handleVIP(chatId, messageId, userid);
                     break;
                 case 'support':
                     this.handleSupport(chatId, messageId);
@@ -115,7 +117,7 @@ class TelegramBotApp {
                     this.handleRestart(chatId);
                     break;
                 case 'verify_payment':
-                    this.verifyPayment(chatId, messageId);
+                    this.verifyPayment(chatId, messageId, userid);
                     break;    
             }
         });
@@ -168,7 +170,7 @@ class TelegramBotApp {
             }
         }
     }
-    private async confirmPixPayment(chatId: number, messageId: number): Promise<void> {
+    private async confirmPixPayment(chatId: number, messageId: number, userid: number = 0): Promise<void> {
         const userData = this.userDataMap.get(chatId);
         if (!userData?.email || !userData?.cpf) {
             return this.handlePix(chatId, messageId);
@@ -181,30 +183,10 @@ class TelegramBotApp {
             identification_type: "cpf",
             identification_number: userData.cpf
         });
-        UpdatePaymentWithChatId(chatId, paymentInfo.id ?? 0);
+        UpdatePaymentWithChatId(userid, paymentInfo.id ?? 0);
 
-        // Here you would integrate with your PIX payment system
         const pixCode = paymentInfo.point_of_interaction?.transaction_data?.qr_code;
-        const qrCodeBuffer =  await QRCode.toBuffer(pixCode ?? "", {
-            errorCorrectionLevel: 'H',
-            margin: 3,
-            width: 300,
-            type: 'png'
-        });
-        
-        const message = 
-            '✅ Pagamento gerado com sucesso!\n\n' +
-            'Escaneie o QR Code acima ou copie o código PIX:\n\n' +
-            `\`${pixCode}\``;
-
-        const backButton = this.getRestartButton();
-        await this.bot.deleteMessage(chatId, messageId);
-        
-        await this.bot.sendPhoto(chatId, qrCodeBuffer, {
-            caption: message,
-            parse_mode: 'Markdown',
-            reply_markup: {inline_keyboard: [this.getcheckPaymentButton(),backButton]}
-        });
+        await this.sendpixMessage(pixCode, chatId, messageId);
         // Store payment info for verification
         this.paymentData.set(chatId, {
             pixCode: pixCode ?? "",
@@ -216,6 +198,29 @@ class TelegramBotApp {
         // Clear user data
         this.userDataMap.delete(chatId);
     }
+    private async sendpixMessage(pixCode: string = "", chatId: number, messageId: number) {
+        const qrCodeBuffer = await QRCode.toBuffer(pixCode ?? "", {
+            errorCorrectionLevel: 'H',
+            margin: 3,
+            width: 300,
+            type: 'png'
+        });
+
+        const message = '✅ Pagamento gerado com sucesso!\n\n' +
+            'Escaneie o QR Code acima ou copie o código PIX:\n\n' +
+            `\`${pixCode}\``;
+
+        const backButton = this.getRestartButton();
+        await this.bot.deleteMessage(chatId, messageId);
+
+        await this.bot.sendPhoto(chatId, qrCodeBuffer, {
+            caption: message,
+            parse_mode: 'Markdown',
+            reply_markup: { inline_keyboard: [this.getcheckPaymentButton(), backButton] }
+        });
+        return pixCode;
+    }
+
     private cancelPixPayment(chatId: number, messageId: number): void {
         // Clear user data
         this.userDataMap.delete(chatId);
@@ -235,32 +240,31 @@ class TelegramBotApp {
         });
     }
 
-    private async verifyPayment(chatId: number, messageId: number): Promise<void> {
-        const payment = this.paymentData.get(chatId);
+    private async verifyPayment(chatId: number, messageId: number, userid: number = 0): Promise<void> {
         
-        if (!payment) {
-            await this.bot.editMessageCaption(
-                '❌ Desculpe, não foi possível encontrar os dados do pagamento. Por favor, tente novamente.',
-                {
-                    chat_id: chatId,
-                    message_id: messageId,
-                    reply_markup: {
-                        inline_keyboard: [
-                            [{ text: 'Voltar ao Menu Principal ↩️', callback_data: 'back' }]
-                        ]
-                    }
+        
+       const info = await getPaymentInfoByTelegramId(userid);
+       if (!info) {
+        await this.bot.editMessageCaption(
+            '❌ Desculpe, não foi possível encontrar os dados do pagamento. Por favor, tente novamente.',
+            {
+                chat_id: chatId,
+                message_id: messageId,
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: 'Voltar ao Menu Principal ↩️', callback_data: 'back' }]
+                    ]
                 }
-            );
+            }
+        );
             return;
         }
-    
         // Here you would integrate with your PIX payment verification system
         try {
             // Mock verification response (replace with actual API call)
-            const paymentStatus = 'approved'; //await checkPayment(payment.payment_id);
+            const paymentStatus = 'approved'; //await checkPayment(info.id);
     
             if (paymentStatus == 'approved') {
-                payment.status = 'completed';
                 const inviteLink = await this.bot.createChatInviteLink(
                     -4774094168, // Replace with your actual group ID or username
                     {
@@ -285,7 +289,6 @@ class TelegramBotApp {
                     }
                 );
             } else {
-                payment.status = 'pending';
                 await this.bot.editMessageCaption(
                     '⏳ Pagamento ainda não confirmado.\n\n' +
                     'Por favor, verifique se:\n' +
@@ -404,20 +407,38 @@ class TelegramBotApp {
         return cpfClean.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
     }
 
-    private handleVIP(chatId: number, messageId: number): void {
-        this.bot.editMessageText(
-            'Área VIP 🌟\n\n' +
-            'Benefícios exclusivos para membros VIP:\n' +
-            '• Atendimento prioritário\n' +
-            '• Conteúdo exclusivo\n' +
-            '• Descontos especiais\n\n' +
-            'Para se tornar VIP, entre em contato com nosso suporte.',
-            {
-                chat_id: chatId,
-                message_id: messageId,
-                reply_markup: {inline_keyboard: [this.getPixButton(), this.getBackButton()]},
+    private async handleVIP(chatId: number, messageId: number, userid:number = 0) {
+        const info = await getPaymentInfoByTelegramId(userid);
+        if(!info){
+            this.bot.editMessageText(
+                'Área VIP 🌟\n\n' +
+                'Benefícios exclusivos para membros VIP:\n' +
+                '• Atendimento prioritário\n' +
+                '• Conteúdo exclusivo\n' +
+                '• Descontos especiais\n\n' +
+                {
+                    chat_id: chatId,
+                    message_id: messageId,
+                    reply_markup: {inline_keyboard: [this.getPixButton(), this.getBackButton()]},
+                }
+            );
+        }else{
+            const payment_status = info.status;
+            if(payment_status == 'pending'){
+                const pixCode = info.point_of_interaction?.transaction_data?.qr_code;
+                //store data for payment to be used in other commands locally
+                this.paymentData.set(chatId, {
+                    pixCode: pixCode ?? "",
+                    timestamp: new Date(),
+                    status: 'pending',
+                    payment_id: info.id ?? 0
+                });
+                await this.sendpixMessage(pixCode, chatId, messageId);
+            }else{
+                this.verifyPayment(chatId, messageId);
             }
-        );
+        }
+        
     }
 
     private handleSupport(chatId: number, messageId: number): void {

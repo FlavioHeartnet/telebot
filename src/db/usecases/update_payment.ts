@@ -1,9 +1,9 @@
 import { supabaseAdmin } from "../supabase";
 
-export default async function UpdatePaymentWithChatId(chatId: number, payment_id: number){
+export default async function UpdatePaymentWithChatId(telegram_id: number, payment_id: number){
     try{
         const resp = await supabaseAdmin().from('payments').update({
-            chatid: chatId
+            telegram_id: telegram_id
         }).eq('payment_id', payment_id); 
         console.log(resp.status);
     }catch(e){
