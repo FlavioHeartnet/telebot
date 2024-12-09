@@ -16,6 +16,7 @@
     "@types/node": "^22.10.1",
     "@types/node-telegram-bot-api": "^0.64.7",
     "@types/qrcode": "^1.5.5",
+    "@supabase/supabase-js": "^2.41.1",
     "dotenv": "^16.4.7",
     "mercadopago": "^2.1.0",
     "node-telegram-bot-api": "^0.66.0",

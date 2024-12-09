@@ -14,6 +14,7 @@ interface UserData {
     email?: string;
     cpf?: string;
     currentField?: 'email' | 'cpf';
+    payment_id?: number;
 }
 const keyboardData1: InlineKeyboardButton = {
     text: 'VIP 🌟', callback_data: 'vip'
@@ -166,6 +167,7 @@ class TelegramBotApp {
             identification_type: "cpf",
             identification_number: userData.cpf
         });
+        userData.payment_id = paymentInfo.id;
         // Here you would integrate with your PIX payment system
         const pixCode = paymentInfo.point_of_interaction?.transaction_data?.qr_code;
         const qrCodeBuffer =  await QRCode.toBuffer(pixCode ?? "", {
