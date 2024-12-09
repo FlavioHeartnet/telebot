@@ -2,6 +2,7 @@ import TelegramBot, {  InlineKeyboardMarkup, InlineKeyboardButton } from 'node-t
 import { config } from './config';
 import createPayment from './payment';
 import QRCode from 'qrcode';
+import UpdatePaymentWithChatId from './db/usecases/update_payment';
 
 
 interface BotConfig {
@@ -103,8 +104,14 @@ class TelegramBotApp {
                 case 'restart':
                     this.handleRestart(chatId);
                     break;
+                case 'checkpayment':
+                    this.handleCheckPayment(chatId);
+                    break;    
             }
         });
+    }
+    handleCheckPayment(chatId: number) {
+        
     }
     private handleUserInput(chatId: number, text: string, userData: UserData): void {
         if (userData.currentField === 'email') {
@@ -167,7 +174,8 @@ class TelegramBotApp {
             identification_type: "cpf",
             identification_number: userData.cpf
         });
-        userData.payment_id = paymentInfo.id;
+        UpdatePaymentWithChatId(chatId, paymentInfo.id ?? 0);
+
         // Here you would integrate with your PIX payment system
         const pixCode = paymentInfo.point_of_interaction?.transaction_data?.qr_code;
         const qrCodeBuffer =  await QRCode.toBuffer(pixCode ?? "", {

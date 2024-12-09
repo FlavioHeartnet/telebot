@@ -41,7 +41,6 @@ export default async function createPayment(req: PaymentParam){
             payment_id: paymentResp.id,
             payment_status: info.status_detail,
         }); 
-
         console.log(resp);
         return paymentResp;
     }catch(e){
