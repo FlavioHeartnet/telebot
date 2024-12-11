@@ -6,7 +6,6 @@ import { config } from "./config";
 import createPayment from "./db/usecases/payment";
 import QRCode from "qrcode";
 import UpdatePaymentWithChatId from "./db/usecases/update_payment";
-import checkPayment from "./db/usecases/check_payment";
 import getPaymentInfoByTelegramId from "./db/usecases/check_payment_user";
 import activatePlan from "./db/usecases/activate_plan";
 import isExpired from "./db/usecases/verify_expired";
