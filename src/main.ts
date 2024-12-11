@@ -443,38 +443,40 @@ class TelegramBotApp {
     userid: number = 0,
   ) {
     const info = await getPaymentInfoByTelegramId(userid);
-    if (!info || await isExpired(userid)) {
-      this.bot.editMessageText(
+    const isExpire = await isExpired(userid);
+    if (info) {
+        if (info.status == "pending") {
+          const pixCode = info.point_of_interaction?.transaction_data?.qr_code;
+          //store data for payment to be used in other commands locally
+          this.paymentData.set(chatId, {
+            pixCode: pixCode ?? "",
+            timestamp: new Date(),
+            status: "pending",
+            payment_id: info.id ?? 0,
+          });
+          await this.sendpixMessage(pixCode, chatId, messageId);
+          return 
+        } else if(info.status == 'approved') {
+          if(!isExpire){
+            this.verifyPayment(chatId, messageId, userid);
+            return 
+          }
+        } 
+        
+      }
+      this.bot.sendMessage(chatId,
         "Área VIP 🌟\n\n" +
           "Benefícios exclusivos para membros VIP:\n" +
           "• Atendimento prioritário\n" +
           "• Conteúdo exclusivo\n" +
-          "• Descontos especiais\n\n" +
+          "• Descontos especiais\n\n" ,
           {
-            chat_id: chatId,
-            message_id: messageId,
             reply_markup: {
               inline_keyboard: [this.getPixButton(), this.getBackButton()],
             },
           },
       );
-    } else {
-      const payment_status = info.status;
-      if (payment_status == "pending") {
-        const pixCode = info.point_of_interaction?.transaction_data?.qr_code;
-        //store data for payment to be used in other commands locally
-        this.paymentData.set(chatId, {
-          pixCode: pixCode ?? "",
-          timestamp: new Date(),
-          status: "pending",
-          payment_id: info.id ?? 0,
-        });
-        await this.sendpixMessage(pixCode, chatId, messageId);
-      } else {
-        this.verifyPayment(chatId, messageId, userid);
-      }
     }
-  }
 
   private handleSupport(chatId: number, messageId: number): void {
     this.bot.editMessageText(
