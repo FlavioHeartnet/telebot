@@ -13,8 +13,6 @@ export type PaymentParam = {
   description: string;
   paymentMethodId: string;
   buyer_email: string;
-  identification_type: string;
-  identification_number: string;
 };
 
 export default async function createPayment(req: PaymentParam) {
@@ -25,13 +23,9 @@ export default async function createPayment(req: PaymentParam) {
         description: req.description,
         payment_method_id: req.paymentMethodId,
         payer: {
-          email: req.buyer_email,
-          identification: {
-            type: req.identification_type,
-            number: req.identification_number,
-          },
+          email: "flavionogueirabarros@gmail.com",
         },
-      },
+      },  
       requestOptions: { idempotencyKey: crypto.randomUUID() },
     });
     const info = await payment.get({ id: paymentResp.id ?? 0 });
@@ -39,7 +33,6 @@ export default async function createPayment(req: PaymentParam) {
     const resp = await supabaseAdmin().from("payments").insert({
       created_at: new Date(),
       email: req.buyer_email,
-      cpf: req.identification_number,
       payment_id: paymentResp.id,
       payment_status: info.status_detail,
     });

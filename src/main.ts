@@ -25,7 +25,6 @@ interface BotConfig {
 }
 interface UserData {
   email?: string;
-  cpf?: string;
   currentField?: "email" | "cpf";
   payment_id?: number;
   telegram_id?: number;
@@ -132,37 +131,13 @@ class TelegramBotApp {
     text: string,
     userData: UserData,
   ): void {
-    if (userData.currentField === "email") {
       if (this.validateEmail(text)) {
+        userData.currentField = "email";
         userData.email = text;
-        userData.currentField = "cpf";
-        this.userDataMap.set(chatId, userData);
-
-        const message = "✅ Email registrado!\n\n" +
-          "Agora, por favor, digite seu CPF (apenas números):";
-
-        this.bot.sendMessage(chatId, message, {
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: "Cancelar Pagamento ❌", callback_data: "cancel_pix" }],
-            ],
-          },
-        });
-      } else {
-        this.bot.sendMessage(
-          chatId,
-          "❌ Email inválido. Por favor, tente novamente:",
-        );
-      }
-    } else if (userData.currentField === "cpf") {
-      if (this.validateCPF(text)) {
-        userData.cpf = text;
-        userData.currentField = undefined;
         this.userDataMap.set(chatId, userData);
 
         const message = "✅ Dados confirmados!\n\n" +
-          `Email: ${userData.email}\n` +
-          `CPF: ${this.formatCPF(userData.cpf)}\n\n` +
+          `Email: ${text}\n` +
           "Deseja confirmar o pagamento?";
 
         const confirmButtons: { reply_markup: InlineKeyboardMarkup } = {
@@ -178,18 +153,18 @@ class TelegramBotApp {
       } else {
         this.bot.sendMessage(
           chatId,
-          "❌ CPF inválido. Por favor, digite apenas números:",
+          "❌ Email inválido. Por favor, tente novamente:",
         );
       }
+      
     }
-  }
   private async confirmPixPayment(
     chatId: number,
     messageId: number,
     userid: number = 0,
   ): Promise<void> {
     const userData = this.userDataMap.get(chatId);
-    if (!userData?.email || !userData?.cpf) {
+    if (!userData?.email) {
       return this.handlePix(chatId, messageId);
     }
     const paymentInfo = await createPayment({
@@ -197,8 +172,6 @@ class TelegramBotApp {
       description: "My Product",
       paymentMethodId: "pix",
       transaction_amount: 1,
-      identification_type: "cpf",
-      identification_number: userData.cpf,
     });
     UpdatePaymentWithChatId(userid, paymentInfo.id ?? 0);
 
@@ -427,15 +400,6 @@ class TelegramBotApp {
     return emailRegex.test(email);
   }
 
-  private validateCPF(cpf: string): boolean {
-    const cpfClean = cpf.replace(/\D/g, "");
-    return cpfClean.length === 11 && /^\d{11}$/.test(cpfClean);
-  }
-
-  private formatCPF(cpf: string): string {
-    const cpfClean = cpf.replace(/\D/g, "");
-    return cpfClean.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
-  }
 
   private async handleVIP(
     chatId: number,
