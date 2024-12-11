@@ -9,6 +9,7 @@ import UpdatePaymentWithChatId from "./db/usecases/update_payment";
 import checkPayment from "./db/usecases/check_payment";
 import getPaymentInfoByTelegramId from "./db/usecases/check_payment_user";
 import activatePlan from "./db/usecases/activate_plan";
+import isExpired from "./db/usecases/verify_expired";
 
 interface PaymentData {
   payment_id: number;
@@ -442,7 +443,7 @@ class TelegramBotApp {
     userid: number = 0,
   ) {
     const info = await getPaymentInfoByTelegramId(userid);
-    if (!info) {
+    if (!info || await isExpired(userid)) {
       this.bot.editMessageText(
         "Área VIP 🌟\n\n" +
           "Benefícios exclusivos para membros VIP:\n" +
@@ -470,7 +471,7 @@ class TelegramBotApp {
         });
         await this.sendpixMessage(pixCode, chatId, messageId);
       } else {
-        this.verifyPayment(chatId, messageId);
+        this.verifyPayment(chatId, messageId, userid);
       }
     }
   }
