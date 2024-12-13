@@ -35,6 +35,8 @@ export default async function createPayment(req: PaymentParam) {
       email: req.buyer_email,
       payment_id: paymentResp.id,
       payment_status: info.status_detail,
+      transaction_amount: req.transaction_amount,
+      application_fee: 0
     });
 
     return paymentResp;
