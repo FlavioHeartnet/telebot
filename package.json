@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "ts-node src/channel/channelclass.ts",
+    "start": "ts-node src/main.ts",
     "build": "tsc",
     "dev": "ts-node-dev src/main.ts",
     "test": "vitest"
