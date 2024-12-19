@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "ts-node src/main.ts",
+    "start": "ts-node src/channel/channelclass.ts",
     "build": "tsc",
     "dev": "ts-node-dev src/main.ts",
     "test": "vitest"
@@ -19,9 +19,11 @@
     "@types/qrcode": "^1.5.5",
     "dayjs": "^1.11.13",
     "dotenv": "^16.4.7",
+    "input": "^1.0.1",
     "mercadopago": "^2.1.0",
     "node-telegram-bot-api": "^0.66.0",
     "qrcode": "^1.5.4",
+    "telegram": "^2.26.8",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.2"
   },
