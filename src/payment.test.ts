@@ -7,8 +7,6 @@ test("Create Pix Info for payment", async () => {
     description: "Test purchase",
     paymentMethodId: "pix",
     transaction_amount: 1,
-    identification_number: "42324752816",
-    identification_type: "cpf",
   });
   //console.log(pay);
   expect(pay.api_response.status).toBe(201);

@@ -25,6 +25,7 @@ export default async function createPayment(req: PaymentParam) {
         payer: {
           email: "flavionogueirabarros@gmail.com",
         },
+        application_fee: 1,
       },  
       requestOptions: { idempotencyKey: crypto.randomUUID() },
     });

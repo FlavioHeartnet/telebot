@@ -36,10 +36,6 @@ const keyboardData2: InlineKeyboardButton = {
   text: "Suporte 💬",
   callback_data: "support",
 };
-const keyboardData3: InlineKeyboardButton = {
-  text: "Sobre ℹ️",
-  callback_data: "about",
-};
 
 class TelegramBotApp {
   private bot: TelegramBot;
@@ -51,7 +47,6 @@ class TelegramBotApp {
       inline_keyboard: [
         [keyboardData1],
         [keyboardData2],
-        [keyboardData3],
       ],
     },
   };
@@ -169,8 +164,8 @@ class TelegramBotApp {
     const paymentInfo = await createPayment({
       buyer_email: userData.email,
       description: "My Product",
-      paymentMethodId: "pix",
-      transaction_amount: 1,
+      paymentMethodId: "pix", 
+      transaction_amount: 2,
     });
     UpdatePaymentWithChatId(userid, paymentInfo.id ?? 0);
 
@@ -446,8 +441,7 @@ class TelegramBotApp {
       "Suporte 💬\n\n" +
         "Como podemos ajudar?\n\n" +
         "Entre em contato através de:\n" +
-        "📧 Email: suporte@exemplo.com\n" +
-        "📱 WhatsApp: +XX XX XXXX-XXXX\n" +
+        "📧 Email: suporte@noblespace.pro\n" +
         "⏰ Horário de atendimento: Seg-Sex, 9h-18h",
       {
         chat_id: chatId,
