@@ -13,6 +13,7 @@ export type PaymentParam = {
   description: string;
   paymentMethodId: string;
   buyer_email: string;
+  bot?: number;
 };
 
 export default async function createPayment(req: PaymentParam) {

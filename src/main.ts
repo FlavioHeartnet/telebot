@@ -27,6 +27,7 @@ interface UserData {
   currentField?: "email" | "cpf";
   payment_id?: number;
   telegram_id?: number;
+  botId?: number;
 }
 const keyboardData1: InlineKeyboardButton = {
   text: "VIP 🌟",
