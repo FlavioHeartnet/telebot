@@ -3,6 +3,7 @@ import { mpSetup } from "./mp-setup.ts";
 import { dbErrorsCheck } from "../db/db_errors.ts";
 import { supabaseAdmin } from "../db/supabase.ts";
 import { config } from "../config.ts";
+import { splitPaymentFee } from "./split_payment.ts";
 
 export type PaymentParam = {
   transaction_amount: number;
@@ -16,6 +17,7 @@ export default async function createPayment(req: PaymentParam) {
   try {
     const mpToken = await getPaymentToken(req.bot || 0);
     const payment = await mpSetup(mpToken);
+    const app_fee = splitPaymentFee(req.transaction_amount)
     const paymentResp = await payment.create({
       body: {
         transaction_amount: req.transaction_amount,
@@ -24,7 +26,7 @@ export default async function createPayment(req: PaymentParam) {
         payer: {
           email: req.buyer_email,
         },
-        application_fee: 1,
+        application_fee: app_fee,
       },
       requestOptions: { idempotencyKey: crypto.randomUUID() },
     });
@@ -36,7 +38,8 @@ export default async function createPayment(req: PaymentParam) {
       payment_id: paymentResp.id,
       payment_status: info.status_detail,
       transaction_amount: req.transaction_amount,
-      application_fee: 0,
+      application_fee: app_fee,
+      bot: req.bot
     });
     dbErrorsCheck(error);
     return paymentResp;
