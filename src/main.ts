@@ -1,8 +1,10 @@
 import { getUserBots } from "./db/usecases/get_user_bots";
 import { TelegramBotApp } from "./telegrambot";
 import express from 'express';
+
 const app = express();
 const port = process.env.PORT || 3000;
+
 
 app.get('/bot/status', (req, res) => {
   res.status(200).json({
@@ -31,6 +33,7 @@ async function startServer() {
           console.log(`🚀 Server is running on port ${port}`);
           console.log('🤖 All bots initialized');
       });
+
   } catch (error) {
       console.error('Failed to start server:', error);
       process.exit(1);
