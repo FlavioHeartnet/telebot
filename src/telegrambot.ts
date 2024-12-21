@@ -267,7 +267,7 @@ export class TelegramBotApp {
               inline_keyboard: [
                 [{
                   text: "🔓 Entrar no Grupo VIP",
-                  url: inviteLink.invite_link,
+                  url: inviteLink,
                 }],
                 [{
                   text: "Voltar ao Menu Principal ↩️",
@@ -304,12 +304,11 @@ export class TelegramBotApp {
       }
     } catch (error) {
       console.error("Error verifying payment:", error);
-      await this.bot.editMessageCaption(
+      await this.bot.sendMessage(chatId,
         "❌ Erro ao verificar o pagamento. Por favor, tente novamente em instantes.\n\n" +
           "/restart - para recomeçar o processo!",
         {
-          chat_id: chatId,
-          message_id: messageId,
+          reply_to_message_id: messageId
         },
       );
     }
