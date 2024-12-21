@@ -1,13 +1,10 @@
-import { MercadoPagoConfig, Payment } from "mercadopago";
-import dotenv from "dotenv";
-import { config } from "../../config.ts";
+import { getPaymentToken } from "../../payment/get_payment_token.ts";
+import { mpSetup } from "../../payment/mp-setup.ts";
+import { dbErrorsCheck } from "../db_errors.ts";
 import { supabaseAdmin } from "../supabase.ts";
 
-dotenv.config();
-const client = new MercadoPagoConfig({
-  accessToken: config.access_token ?? "",
-});
-const payment = new Payment(client);
+
+
 export type PaymentParam = {
   transaction_amount: number;
   description: string;
@@ -18,6 +15,8 @@ export type PaymentParam = {
 
 export default async function createPayment(req: PaymentParam) {
   try {
+    const mpToken = await getPaymentToken(req.bot || 0);
+    const payment = await mpSetup(mpToken);
     const paymentResp = await payment.create({
       body: {
         transaction_amount: req.transaction_amount,
@@ -32,7 +31,7 @@ export default async function createPayment(req: PaymentParam) {
     });
     const info = await payment.get({ id: paymentResp.id ?? 0 });
 
-    const resp = await supabaseAdmin().from("payments").insert({
+    const { error } = await supabaseAdmin().from("payments").insert({
       created_at: new Date(),
       email: req.buyer_email,
       payment_id: paymentResp.id,
@@ -40,7 +39,7 @@ export default async function createPayment(req: PaymentParam) {
       transaction_amount: req.transaction_amount,
       application_fee: 0
     });
-
+    dbErrorsCheck(error);
     return paymentResp;
   } catch (e) {
     console.log(e);

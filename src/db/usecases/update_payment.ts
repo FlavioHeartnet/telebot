@@ -1,3 +1,4 @@
+import { dbErrorsCheck } from "../db_errors";
 import { supabaseAdmin } from "../supabase";
 
 export default async function UpdatePaymentWithChatId(
@@ -5,10 +6,11 @@ export default async function UpdatePaymentWithChatId(
   payment_id: number,
 ) {
   try {
-    const resp = await supabaseAdmin().from("payments").update({
+    const {status, error} = await supabaseAdmin().from("payments").update({
       telegram_id: telegram_id,
     }).eq("payment_id", payment_id);
-    console.log(resp.status);
+    console.log(status);
+    dbErrorsCheck(error);
   } catch (e) {
     throw new Error("Supabase Error: " + e);
   }
