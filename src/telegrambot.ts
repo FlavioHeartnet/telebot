@@ -8,6 +8,7 @@ import UpdatePaymentWithChatId from "./db/usecases/update_payment";
 import getPaymentInfoByTelegramId from "./db/usecases/check_payment_user";
 import activatePlan from "./db/usecases/activate_plan";
 import isExpired from "./db/usecases/verify_expired";
+import { createInvite } from "./botActions/createInvite";
 
 interface PaymentData {
   payment_id: number;
@@ -254,15 +255,7 @@ export class TelegramBotApp {
     try {
       if (info.status == "approved") {
         await activatePlan(info.id ?? 0, info.status_detail);
-        const inviteLink = await this.bot.createChatInviteLink(
-          -4774094168,
-          {
-            name: `VIP Member - ${new Date().toISOString()}`,
-            expire_date: undefined, // Never expires
-            member_limit: 1, // One-time use
-            creates_join_request: false,
-          },
-        );
+        const inviteLink = await createInvite(this.bot);
         await this.bot.sendMessage(
           chatId,
           "✅ Pagamento aprovado com sucesso!\n\n" +
