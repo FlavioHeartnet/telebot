@@ -1,12 +1,10 @@
-import MercadoPagoConfig, { Payment } from "mercadopago";
-import { config } from "../config";
 import { supabaseAdmin } from "../db/supabase";
+import { getPaymentToken } from "./get_payment_token";
+import { mpSetup } from "./mp-setup";
 
-export default async function getPaymentInfoByTelegramId(telegram_id: number) {
-  const client = new MercadoPagoConfig({
-    accessToken: config.access_token ?? "",
-  });
-  const payment = new Payment(client);
+export default async function getPaymentInfoByTelegramId(telegram_id: number, bot_id: number) {
+  const mpToken = await getPaymentToken(bot_id);
+  const payment = await mpSetup(mpToken);
   const resp = await supabaseAdmin().from("payments").select("payment_id").eq(
     "telegram_id",
     telegram_id,

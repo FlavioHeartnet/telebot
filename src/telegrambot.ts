@@ -19,6 +19,7 @@ interface PaymentData {
 export interface BotConfig {
   token: string;
   id: number;
+  groupId?: string;
   options: {
     polling: boolean;
   };
@@ -38,12 +39,15 @@ const keyboardData2: InlineKeyboardButton = {
   text: "Suporte 💬",
   callback_data: "support",
 };
-
+interface BotInstance {
+  bot: TelegramBot;
+  bot_id:number;
+  groupId?: string;
+}
 export class TelegramBotApp {
-  private bot: TelegramBot;
-  // Store user data temporarily (in production, use a proper database)
   private userDataMap: Map<number, UserData> = new Map();
   private paymentData: Map<number, PaymentData> = new Map();
+  private bots: Map<string, BotInstance> = new Map();
   private readonly mainKeyboard: { reply_markup: InlineKeyboardMarkup } = {
     reply_markup: {
       inline_keyboard: [
@@ -53,71 +57,80 @@ export class TelegramBotApp {
     },
   };
 
-  constructor(config: BotConfig) {
-    this.bot = new TelegramBot(config.token, config.options);
-    this.initializeHandlers();
+  constructor() {}
+
+  public initializeBot(config: BotConfig){
+    const bot = new TelegramBot(config.token, config.options);
+    const instance = {
+      bot: bot,
+      bot_id: config.id,
+      groupId: config.groupId
+    }
+    this.bots.set(config.token, instance);
+    this.initializeHandlers(instance);
   }
 
-  private initializeHandlers(): void {
+  private initializeHandlers(instance: BotInstance): void {
+    const { bot, bot_id } = instance;
     // Start command - shows the main menu
-    this.bot.onText(/\/start/, (msg) => {
+    bot.onText(/\/start/, (msg) => {
       const chatId = msg.chat.id;
-      this.sendMainMenu(chatId);
+      this.sendMainMenu(chatId, bot);
     });
 
-    this.bot.onText(/\/restart/, (msg) => {
+    bot.onText(/\/restart/, (msg) => {
       const chatId = msg.chat.id;
-      this.handleRestart(chatId);
+      this.handleRestart(chatId, bot);
     });
 
-    this.bot.on("message", (msg) => {
+    bot.on("message", (msg) => {
       if (msg.text && !msg.text.startsWith("/")) {
         const chatId = msg.chat.id;
         const userData = this.userDataMap.get(chatId);
 
         if (userData?.currentField) {
-          this.handleUserInput(chatId, msg.text, userData);
+          this.handleUserInput(chatId, msg.text, userData, bot);
         }
       }
     });
 
     // Handle inline keyboard callbacks
-    this.bot.on("callback_query", (callbackQuery) => {
+    bot.on("callback_query", (callbackQuery) => {
       const chatId = callbackQuery.message?.chat.id;
       const messageId = callbackQuery.message?.message_id;
       const userid = callbackQuery.message?.from?.id;
       if (!chatId || !messageId) return;
 
       // Answer the callback query to remove the loading state
-      this.bot.answerCallbackQuery(callbackQuery.id);
+      bot.answerCallbackQuery(callbackQuery.id);
 
       switch (callbackQuery.data) {
         case "pix":
-          this.handlePix(chatId, messageId);
+          this.handlePix(chatId, messageId, bot);
           break;
         case "confirm_pix":
-          this.confirmPixPayment(chatId, messageId, userid);
+          this.confirmPixPayment(chatId, messageId, userid, bot);
           break;
         case "cancel_pix":
-          this.cancelPixPayment(chatId, messageId);
+          this.cancelPixPayment(chatId, messageId, bot);
           break;
         case "vip":
-          this.handleVIP(chatId, messageId, userid);
+          this.handleVIP(chatId, messageId, userid, bot, bot_id);
           break;
         case "support":
-          this.handleSupport(chatId, messageId);
+          this.handleSupport(chatId, messageId, bot);
           break;
         case "about":
-          this.handleAbout(chatId, messageId);
+          this.handleAbout(chatId, messageId, bot);
           break;
         case "back":
-          this.sendMainMenu(chatId, messageId);
+          this.sendMainMenu(chatId, bot, messageId);
           break;
         case "restart":
-          this.handleRestart(chatId);
+          this.handleRestart(chatId, bot);
           break;
         case "verify_payment":
-          this.verifyPayment(chatId, messageId, userid);
+          this.verifyPayment(chatId, messageId, userid, bot, bot_id);
           break;
       }
     });
@@ -126,6 +139,7 @@ export class TelegramBotApp {
     chatId: number,
     text: string,
     userData: UserData,
+    bot: TelegramBot
   ): void {
     if (this.validateEmail(text)) {
       userData.currentField = "email";
@@ -145,9 +159,9 @@ export class TelegramBotApp {
         },
       };
 
-      this.bot.sendMessage(chatId, message, confirmButtons);
+      bot.sendMessage(chatId, message, confirmButtons);
     } else {
-      this.bot.sendMessage(
+      bot.sendMessage(
         chatId,
         "❌ Email inválido. Por favor, tente novamente:",
       );
@@ -157,10 +171,11 @@ export class TelegramBotApp {
     chatId: number,
     messageId: number,
     userid: number = 0,
+    bot: TelegramBot
   ): Promise<void> {
     const userData = this.userDataMap.get(chatId);
     if (!userData?.email) {
-      return this.handlePix(chatId, messageId);
+      return this.handlePix(chatId, messageId, bot);
     }
     const paymentInfo = await createPayment({
       buyer_email: userData.email,
@@ -171,7 +186,7 @@ export class TelegramBotApp {
     UpdatePaymentWithChatId(userid, paymentInfo.id ?? 0);
 
     const pixCode = paymentInfo.point_of_interaction?.transaction_data?.qr_code;
-    await this.sendpixMessage(pixCode, chatId, messageId);
+    await this.sendpixMessage(pixCode, chatId, messageId, bot);
     // Store payment info for verification
     this.paymentData.set(chatId, {
       pixCode: pixCode ?? "",
@@ -187,6 +202,7 @@ export class TelegramBotApp {
     pixCode: string = "",
     chatId: number,
     messageId: number,
+    bot: TelegramBot
   ) {
     const qrCodeBuffer = await QRCode.toBuffer(pixCode ?? "", {
       errorCorrectionLevel: "H",
@@ -200,9 +216,9 @@ export class TelegramBotApp {
       `\`${pixCode}\``;
 
     const backButton = this.getRestartButton();
-    await this.bot.deleteMessage(chatId, messageId);
+    await bot.deleteMessage(chatId, messageId);
 
-    await this.bot.sendPhoto(chatId, qrCodeBuffer, {
+    await bot.sendPhoto(chatId, qrCodeBuffer, {
       caption: message,
       parse_mode: "Markdown",
       reply_markup: {
@@ -212,13 +228,13 @@ export class TelegramBotApp {
     return pixCode;
   }
 
-  private cancelPixPayment(chatId: number, messageId: number): void {
+  private cancelPixPayment(chatId: number, messageId: number, bot: TelegramBot): void {
     // Clear user data
     this.userDataMap.delete(chatId);
 
     const message = "❌ Pagamento cancelado. Voltando ao menu principal...";
 
-    this.bot.editMessageText(message, {
+    bot.editMessageText(message, {
       chat_id: chatId,
       message_id: messageId,
       reply_markup: this.mainKeyboard.reply_markup,
@@ -235,10 +251,12 @@ export class TelegramBotApp {
     chatId: number,
     messageId: number,
     userid: number = 0,
+    bot: TelegramBot,
+    supabase_botId: number,
   ): Promise<void> {
-    const info = await getPaymentInfoByTelegramId(userid);
+    const info = await getPaymentInfoByTelegramId(userid, supabase_botId);
     if (!info) {
-      await this.bot.editMessageCaption(
+      await bot.editMessageCaption(
         "❌ Desculpe, não foi possível encontrar os dados do pagamento. Por favor, tente novamente.",
         {
           chat_id: chatId,
@@ -255,8 +273,8 @@ export class TelegramBotApp {
     try {
       if (info.status == "approved") {
         await activatePlan(info.id ?? 0, info.status_detail);
-        const inviteLink = await createInvite(this.bot);
-        await this.bot.sendMessage(
+        const inviteLink = await createInvite(bot);
+        await bot.sendMessage(
           chatId,
           "✅ Pagamento aprovado com sucesso!\n\n" +
             "🎉 Seu acesso VIP já está liberado.\n" +
@@ -278,7 +296,7 @@ export class TelegramBotApp {
           },
         );
       } else {
-        await this.bot.editMessageCaption(
+        await bot.editMessageCaption(
           "⏳ Pagamento ainda não confirmado.\n\n" +
             "Por favor, verifique se:\n" +
             "• O pagamento foi realizado corretamente\n" +
@@ -304,7 +322,7 @@ export class TelegramBotApp {
       }
     } catch (error) {
       console.error("Error verifying payment:", error);
-      await this.bot.sendMessage(
+      await bot.sendMessage(
         chatId,
         "❌ Erro ao verificar o pagamento. Por favor, tente novamente em instantes.\n\n" +
           "/restart - para recomeçar o processo!",
@@ -315,7 +333,7 @@ export class TelegramBotApp {
     }
   }
 
-  private handlePix(chatId: number, messageId: number): void {
+  private handlePix(chatId: number, messageId: number, bot: TelegramBot): void {
     // Initialize user data collection
     this.userDataMap.set(chatId, { currentField: "email" });
 
@@ -330,14 +348,14 @@ export class TelegramBotApp {
       },
     };
 
-    this.bot.editMessageText(message, {
+    bot.editMessageText(message, {
       chat_id: chatId,
       message_id: messageId,
       reply_markup: cancelButton.reply_markup,
     });
   }
 
-  private handleRestart(chatId: number): void {
+  private handleRestart(chatId: number, bot: TelegramBot): void {
     const restartMessage = "🔄 Bot reiniciado!\n\n" +
       "Comandos disponíveis:\n" +
       "/start - Iniciar conversa\n" +
@@ -345,24 +363,24 @@ export class TelegramBotApp {
       "Escolha uma opção abaixo:";
 
     // Delete previous messages (optional)
-    this.bot.deleteMessage(chatId, chatId)
+    bot.deleteMessage(chatId, chatId)
       .catch(() => {}); // Ignore errors if message doesn't exist
 
     // Send new welcome message with main menu
-    this.bot.sendMessage(chatId, restartMessage, this.mainKeyboard);
+    bot.sendMessage(chatId, restartMessage, this.mainKeyboard);
   }
 
-  private sendMainMenu(chatId: number, messageId?: number): void {
+  private sendMainMenu(chatId: number,bot: TelegramBot ,messageId?: number ): void {
     const text = "Bem-vindo! Por favor, escolha uma das opções abaixo:";
 
     if (messageId) {
-      this.bot.editMessageText(text, {
+      bot.editMessageText(text, {
         chat_id: chatId,
         message_id: messageId,
         ...this.mainKeyboard,
       });
     } else {
-      this.bot.sendMessage(chatId, text, this.mainKeyboard);
+      bot.sendMessage(chatId, text, this.mainKeyboard);
     }
   }
 
@@ -388,11 +406,9 @@ export class TelegramBotApp {
   }
 
   private async handleVIP(
-    chatId: number,
-    messageId: number,
-    userid: number = 0,
+chatId: number, messageId: number, userid: number = 0, bot: TelegramBot, supabase_botId: number
   ) {
-    const info = await getPaymentInfoByTelegramId(userid);
+    const info = await getPaymentInfoByTelegramId(userid, supabase_botId);
     const isExpire = await isExpired(userid);
     if (info) {
       if (info.status == "pending") {
@@ -404,16 +420,16 @@ export class TelegramBotApp {
           status: "pending",
           payment_id: info.id ?? 0,
         });
-        await this.sendpixMessage(pixCode, chatId, messageId);
+        await this.sendpixMessage(pixCode, chatId, messageId, bot);
         return;
       } else if (info.status == "approved") {
         if (!isExpire) {
-          this.verifyPayment(chatId, messageId, userid);
+          this.verifyPayment(chatId, messageId, userid, bot, supabase_botId);
           return;
         }
       }
     }
-    this.bot.sendMessage(
+    bot.sendMessage(
       chatId,
       "Área VIP 🌟\n\n" +
         "Benefícios exclusivos para membros VIP:\n" +
@@ -428,8 +444,8 @@ export class TelegramBotApp {
     );
   }
 
-  private handleSupport(chatId: number, messageId: number): void {
-    this.bot.editMessageText(
+  private handleSupport(chatId: number, messageId: number, bot: TelegramBot): void {
+    bot.editMessageText(
       "Suporte 💬\n\n" +
         "Como podemos ajudar?\n\n" +
         "Entre em contato através de:\n" +
@@ -443,8 +459,8 @@ export class TelegramBotApp {
     );
   }
 
-  private handleAbout(chatId: number, messageId: number): void {
-    this.bot.editMessageText(
+  private handleAbout(chatId: number, messageId: number, bot: TelegramBot): void {
+    bot.editMessageText(
       "Sobre Nós ℹ️\n\n" +
         "Somos uma empresa dedicada a fornecer o melhor serviço para nossos clientes.\n\n" +
         "🌐 Website: www.exemplo.com\n" +
@@ -457,6 +473,17 @@ export class TelegramBotApp {
       },
     );
   }
+
+  public getBotStatus(): Array<{ groupId: string | undefined , status: string }> {
+    return Array.from(this.bots.values()).map(({ groupId }) => ({
+        groupId,
+        status: 'running'
+    }));
+}
+
+public getBotByToken(token: string): BotInstance | undefined {
+    return this.bots.get(token);
+}
 
   public start(): void {
     console.log("Bot iniciado com sucesso! Pressione Ctrl+C para encerrar.");

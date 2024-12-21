@@ -11,21 +11,33 @@ app.get('/bot/status', (req, res) => {
       uptime: process.uptime()
   });
 });
+const bot = new TelegramBotApp();
 
-app.listen(port, async () => {
-  const configs = await getUserBots();
+// Start server and bots
+async function startServer() {
+  try {
+    const configs = await getUserBots();
 
-  if (configs) {
-    configs.forEach((config) => {
-      // Start the bots
-      const bot = new TelegramBotApp(config);
-      bot.start();
-    });
-  } else {
-    console.log("Sem Bots ativos para inicializar.");
+    if (configs) {
+      configs.forEach((config) => {
+        // Start the bots
+        bot.initializeBot(config);
+      });
+    } else {
+      console.log("Sem Bots ativos para inicializar.");
+    }
+      
+      app.listen(port, () => {
+          console.log(`🚀 Server is running on port ${port}`);
+          console.log('🤖 All bots initialized');
+      });
+  } catch (error) {
+      console.error('Failed to start server:', error);
+      process.exit(1);
   }
-  console.log(`🚀 Server is running on port ${port}`);
-});
+}
+
+startServer();
 
 // Error handling
 process.on('uncaughtException', (error) => {
