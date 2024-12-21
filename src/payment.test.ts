@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import createPayment from "./db/usecases/payment.ts";
+import createPayment from "./payment/payment.ts";
 
 test("Create Pix Info for payment", async () => {
   const pay = await createPayment({

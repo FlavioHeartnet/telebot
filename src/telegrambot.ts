@@ -2,10 +2,10 @@ import TelegramBot, {
   InlineKeyboardButton,
   InlineKeyboardMarkup,
 } from "node-telegram-bot-api";
-import createPayment from "./db/usecases/payment";
+import createPayment from "./payment/payment";
 import QRCode from "qrcode";
-import UpdatePaymentWithChatId from "./db/usecases/update_payment";
-import getPaymentInfoByTelegramId from "./db/usecases/check_payment_user";
+import UpdatePaymentWithChatId from "./payment/update_payment";
+import getPaymentInfoByTelegramId from "./payment/check_payment_user";
 import activatePlan from "./db/usecases/activate_plan";
 import isExpired from "./db/usecases/verify_expired";
 import { createInvite } from "./botActions/createInvite";
@@ -18,6 +18,7 @@ interface PaymentData {
 }
 export interface BotConfig {
   token: string;
+  id: number;
   options: {
     polling: boolean;
   };
@@ -126,33 +127,32 @@ export class TelegramBotApp {
     text: string,
     userData: UserData,
   ): void {
-      if (this.validateEmail(text)) {
-        userData.currentField = "email";
-        userData.email = text;
-        this.userDataMap.set(chatId, userData);
+    if (this.validateEmail(text)) {
+      userData.currentField = "email";
+      userData.email = text;
+      this.userDataMap.set(chatId, userData);
 
-        const message = "✅ Dados confirmados!\n\n" +
-          `Email: ${text}\n` +
-          "Deseja confirmar o pagamento?";
+      const message = "✅ Dados confirmados!\n\n" +
+        `Email: ${text}\n` +
+        "Deseja confirmar o pagamento?";
 
-        const confirmButtons: { reply_markup: InlineKeyboardMarkup } = {
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: "Confirmar Dados ✅", callback_data: "confirm_pix" }],
-              [{ text: "Cancelar Pagamento ❌", callback_data: "cancel_pix" }],
-            ],
-          },
-        };
+      const confirmButtons: { reply_markup: InlineKeyboardMarkup } = {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: "Confirmar Dados ✅", callback_data: "confirm_pix" }],
+            [{ text: "Cancelar Pagamento ❌", callback_data: "cancel_pix" }],
+          ],
+        },
+      };
 
-        this.bot.sendMessage(chatId, message, confirmButtons);
-      } else {
-        this.bot.sendMessage(
-          chatId,
-          "❌ Email inválido. Por favor, tente novamente:",
-        );
-      }
-      
+      this.bot.sendMessage(chatId, message, confirmButtons);
+    } else {
+      this.bot.sendMessage(
+        chatId,
+        "❌ Email inválido. Por favor, tente novamente:",
+      );
     }
+  }
   private async confirmPixPayment(
     chatId: number,
     messageId: number,
@@ -165,7 +165,7 @@ export class TelegramBotApp {
     const paymentInfo = await createPayment({
       buyer_email: userData.email,
       description: "My Product",
-      paymentMethodId: "pix", 
+      paymentMethodId: "pix",
       transaction_amount: 2,
     });
     UpdatePaymentWithChatId(userid, paymentInfo.id ?? 0);
@@ -304,11 +304,12 @@ export class TelegramBotApp {
       }
     } catch (error) {
       console.error("Error verifying payment:", error);
-      await this.bot.sendMessage(chatId,
+      await this.bot.sendMessage(
+        chatId,
         "❌ Erro ao verificar o pagamento. Por favor, tente novamente em instantes.\n\n" +
           "/restart - para recomeçar o processo!",
         {
-          reply_to_message_id: messageId
+          reply_to_message_id: messageId,
         },
       );
     }
@@ -386,7 +387,6 @@ export class TelegramBotApp {
     return emailRegex.test(email);
   }
 
-
   private async handleVIP(
     chatId: number,
     messageId: number,
@@ -395,38 +395,38 @@ export class TelegramBotApp {
     const info = await getPaymentInfoByTelegramId(userid);
     const isExpire = await isExpired(userid);
     if (info) {
-        if (info.status == "pending") {
-          const pixCode = info.point_of_interaction?.transaction_data?.qr_code;
-          //store data for payment to be used in other commands locally
-          this.paymentData.set(chatId, {
-            pixCode: pixCode ?? "",
-            timestamp: new Date(),
-            status: "pending",
-            payment_id: info.id ?? 0,
-          });
-          await this.sendpixMessage(pixCode, chatId, messageId);
-          return 
-        } else if(info.status == 'approved') {
-          if(!isExpire){
-            this.verifyPayment(chatId, messageId, userid);
-            return 
-          }
-        } 
-        
+      if (info.status == "pending") {
+        const pixCode = info.point_of_interaction?.transaction_data?.qr_code;
+        //store data for payment to be used in other commands locally
+        this.paymentData.set(chatId, {
+          pixCode: pixCode ?? "",
+          timestamp: new Date(),
+          status: "pending",
+          payment_id: info.id ?? 0,
+        });
+        await this.sendpixMessage(pixCode, chatId, messageId);
+        return;
+      } else if (info.status == "approved") {
+        if (!isExpire) {
+          this.verifyPayment(chatId, messageId, userid);
+          return;
+        }
       }
-      this.bot.sendMessage(chatId,
-        "Área VIP 🌟\n\n" +
-          "Benefícios exclusivos para membros VIP:\n" +
-          "• Atendimento prioritário\n" +
-          "• Conteúdo exclusivo\n" +
-          "• Descontos especiais\n\n" ,
-          {
-            reply_markup: {
-              inline_keyboard: [this.getPixButton(), this.getBackButton()],
-            },
-          },
-      );
     }
+    this.bot.sendMessage(
+      chatId,
+      "Área VIP 🌟\n\n" +
+        "Benefícios exclusivos para membros VIP:\n" +
+        "• Atendimento prioritário\n" +
+        "• Conteúdo exclusivo\n" +
+        "• Descontos especiais\n\n",
+      {
+        reply_markup: {
+          inline_keyboard: [this.getPixButton(), this.getBackButton()],
+        },
+      },
+    );
+  }
 
   private handleSupport(chatId: number, messageId: number): void {
     this.bot.editMessageText(

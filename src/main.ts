@@ -1,15 +1,15 @@
-import { config } from "./config";
-import { BotConfig, TelegramBotApp } from "./telegrambot";
-
+import { getUserBots } from "./db/usecases/get_user_bots";
+import { TelegramBotApp } from "./telegrambot";
 
 // Configuration
-const configuration: BotConfig = {
-  token: config.telegramBotKey || "",
-  options: {
-    polling: true,
-  },
-};
-
-// Start the bot
-const bot = new TelegramBotApp(configuration);
-bot.start();
+getUserBots().then((configs) => {
+  if (configs) {
+    configs.forEach((config) => {
+      // Start the bots
+      const bot = new TelegramBotApp(config);
+      bot.start();
+    });
+  } else {
+    console.log("Sem Bots ativos para inicializar.");
+  }
+});

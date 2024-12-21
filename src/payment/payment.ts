@@ -1,9 +1,7 @@
-import { getPaymentToken } from "../../payment/get_payment_token.ts";
-import { mpSetup } from "../../payment/mp-setup.ts";
-import { dbErrorsCheck } from "../db_errors.ts";
-import { supabaseAdmin } from "../supabase.ts";
-
-
+import { getPaymentToken } from "./get_payment_token.ts";
+import { mpSetup } from "./mp-setup.ts";
+import { dbErrorsCheck } from "../db/db_errors.ts";
+import { supabaseAdmin } from "../db/supabase.ts";
 
 export type PaymentParam = {
   transaction_amount: number;
@@ -26,7 +24,7 @@ export default async function createPayment(req: PaymentParam) {
           email: "flavionogueirabarros@gmail.com",
         },
         application_fee: 1,
-      },  
+      },
       requestOptions: { idempotencyKey: crypto.randomUUID() },
     });
     const info = await payment.get({ id: paymentResp.id ?? 0 });
@@ -37,7 +35,7 @@ export default async function createPayment(req: PaymentParam) {
       payment_id: paymentResp.id,
       payment_status: info.status_detail,
       transaction_amount: req.transaction_amount,
-      application_fee: 0
+      application_fee: 0,
     });
     dbErrorsCheck(error);
     return paymentResp;
