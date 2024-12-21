@@ -109,7 +109,7 @@ export class TelegramBotApp {
           this.handlePix(chatId, messageId, bot);
           break;
         case "confirm_pix":
-          this.confirmPixPayment(chatId, messageId, userid, bot);
+          this.confirmPixPayment(chatId, messageId, userid, bot, bot_id);
           break;
         case "cancel_pix":
           this.cancelPixPayment(chatId, messageId, bot);
@@ -171,7 +171,8 @@ export class TelegramBotApp {
     chatId: number,
     messageId: number,
     userid: number = 0,
-    bot: TelegramBot
+    bot: TelegramBot,
+    supabase_botId:number
   ): Promise<void> {
     const userData = this.userDataMap.get(chatId);
     if (!userData?.email) {
@@ -182,6 +183,7 @@ export class TelegramBotApp {
       description: "My Product",
       paymentMethodId: "pix",
       transaction_amount: 2,
+      bot: supabase_botId
     });
     UpdatePaymentWithChatId(userid, paymentInfo.id ?? 0);
 

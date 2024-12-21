@@ -9,7 +9,7 @@ export default async function getPaymentInfoByTelegramId(telegram_id: number, bo
     "telegram_id",
     telegram_id,
   ).order("created_at", { ascending: false }).limit(1);
-  if (resp.data) {
+  if (resp.data && resp.data.length > 0) {
     return await payment.get({ id: resp.data[0].payment_id ?? 0 });
   }
 }

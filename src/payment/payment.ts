@@ -2,6 +2,7 @@ import { getPaymentToken } from "./get_payment_token.ts";
 import { mpSetup } from "./mp-setup.ts";
 import { dbErrorsCheck } from "../db/db_errors.ts";
 import { supabaseAdmin } from "../db/supabase.ts";
+import { config } from "../config.ts";
 
 export type PaymentParam = {
   transaction_amount: number;
@@ -21,7 +22,7 @@ export default async function createPayment(req: PaymentParam) {
         description: req.description,
         payment_method_id: req.paymentMethodId,
         payer: {
-          email: "flavionogueirabarros@gmail.com",
+          email: req.buyer_email,
         },
         application_fee: 1,
       },
