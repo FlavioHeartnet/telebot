@@ -279,8 +279,8 @@ export class TelegramBotApp {
         await bot.sendMessage(
           chatId,
           "✅ Pagamento aprovado com sucesso!\n\n" +
-            "🎉 Seu acesso VIP já está liberado.\n" +
-            "🌟 Bem-vindo ao NobleSpace VIP!\n\n" +
+            "🎉 Seu acesso já está liberado.\n" +
+            "🌟 Bem-vindo ao canal VIP!\n\n" +
             "📱 Clique no botão abaixo para entrar no grupo exclusivo.\n",
           {
             reply_markup: {
