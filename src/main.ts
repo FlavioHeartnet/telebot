@@ -1,16 +1,15 @@
 import { getUserBots } from "./db/usecases/get_user_bots";
 import { TelegramBotApp } from "./telegrambot";
-import express from 'express';
+import express from "express";
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-
-app.get('/bot/status', (req, res) => {
+app.get("/bot/status", (req, res) => {
   res.status(200).json({
-      status: 'running',
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime()
+    status: "running",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
   });
 });
 const bot = new TelegramBotApp();
@@ -28,27 +27,26 @@ async function startServer() {
     } else {
       console.log("Sem Bots ativos para inicializar.");
     }
-      
-      app.listen(port, () => {
-          console.log(`🚀 Server is running on port ${port}`);
-          console.log('🤖 All bots initialized');
-      });
 
+    app.listen(port, () => {
+      console.log(`🚀 Server is running on port ${port}`);
+      console.log("🤖 All bots initialized");
+    });
   } catch (error) {
-      console.error('Failed to start server:', error);
-      process.exit(1);
+    console.error("Failed to start server:", error);
+    process.exit(1);
   }
 }
 
 startServer();
 
 // Error handling
-process.on('uncaughtException', (error) => {
-  console.error('Uncaught Exception:', error);
+process.on("uncaughtException", (error) => {
+  console.error("Uncaught Exception:", error);
   // Add your error reporting here
 });
 
-process.on('unhandledRejection', (error) => {
-  console.error('Unhandled Rejection:', error);
+process.on("unhandledRejection", (error) => {
+  console.error("Unhandled Rejection:", error);
   // Add your error reporting here
 });

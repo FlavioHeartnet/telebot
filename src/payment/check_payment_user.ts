@@ -2,7 +2,10 @@ import { supabaseAdmin } from "../db/supabase";
 import { getPaymentToken } from "./get_payment_token";
 import { mpSetup } from "./mp-setup";
 
-export default async function getPaymentInfoByTelegramId(telegram_id: number, bot_id: number) {
+export default async function getPaymentInfoByTelegramId(
+  telegram_id: number,
+  bot_id: number,
+) {
   const mpToken = await getPaymentToken(bot_id);
   const payment = await mpSetup(mpToken);
   const resp = await supabaseAdmin().from("payments").select("payment_id").eq(

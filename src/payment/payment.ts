@@ -17,7 +17,7 @@ export default async function createPayment(req: PaymentParam) {
   try {
     const mpToken = await getPaymentToken(req.bot || 0);
     const payment = await mpSetup(mpToken);
-    const app_fee = splitPaymentFee(req.transaction_amount)
+    const app_fee = splitPaymentFee(req.transaction_amount);
     const paymentResp = await payment.create({
       body: {
         transaction_amount: req.transaction_amount,
@@ -40,7 +40,7 @@ export default async function createPayment(req: PaymentParam) {
       transaction_amount: req.transaction_amount,
       application_fee: app_fee,
       bot: req.bot,
-      product: req.product
+      product: req.product,
     });
     dbErrorsCheck(error);
     return paymentResp;

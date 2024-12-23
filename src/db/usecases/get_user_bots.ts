@@ -12,8 +12,8 @@ export async function getUserBots() {
       token: bot.bot_token,
       groupId: bot.bot_id_group,
       options: {
-        polling: true
-      }
+        polling: true,
+      },
     } as BotConfig;
   });
 }
