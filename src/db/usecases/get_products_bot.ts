@@ -30,7 +30,7 @@ async function getProductsFromDb(bot_id:number){
 export async function getProductsGroupsByBot(bot_id: number) {
   try{
     const products = await getProductsFromDb(bot_id);
-    const botProducts = products.filter((a) => a.bot === bot_id);
+    const botProducts = products.filter((a) => a.bot === bot_id && a.isActive);
     return groupProductsByType(botProducts);
   }catch(e){
     return {} as GroupedProducts;
