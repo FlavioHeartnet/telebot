@@ -525,7 +525,7 @@ export class TelegramBotApp {
   ) {
     const selectedProduct = this.selectedProduct.get(userid);
     const info = await getPaymentInfoByTelegramId(userid, supabase_botId, selectedProduct?.id || 0);
-    const isExpire = await isExpired(userid);
+    const isExpire = await isExpired(userid, selectedProduct?.id || 0);
     
     if (info) {
       if (info.status == "pending") {

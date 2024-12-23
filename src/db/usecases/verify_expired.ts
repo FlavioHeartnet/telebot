@@ -1,13 +1,15 @@
 import dayjs from "dayjs";
 import { supabaseAdmin } from "../supabase";
 
-export default async function isExpired(telegram_id: number) {
+export default async function isExpired(telegram_id: number, productId: number) {
   const resp = await supabaseAdmin().from("payments").select(
     "expire_in, payment_status",
   ).eq(
     "telegram_id",
     telegram_id,
-  ).order("created_at", { ascending: false }).limit(1);
+  )
+  .eq("product", productId)
+  .order("created_at", { ascending: false }).limit(1);
   if (resp.data) {
     const latestDate = resp.data.reduce((latest, current) => {
       if (current.payment_status == "accredited") {
