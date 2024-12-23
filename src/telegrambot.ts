@@ -246,30 +246,43 @@ export class TelegramBotApp {
     if (!userData?.email) {
       return this.handlePix(chatId, messageId, bot);
     }
-    const selectedProduct = this.bots.get(userid)?.selectedProduct;
+    const selectedProduct = this.selectedProduct.get(userid);
     if (!selectedProduct) {
-      throw new Error("Product not found");
+      bot.sendMessage(chatId, "❌ Algo deu errado com sua compra, por favor reinicie o bot: /restart");
+      return
     }
-    const paymentInfo = await createPayment({
-      buyer_email: userData.email,
-      description: selectedProduct.name,
-      paymentMethodId: "pix",
-      transaction_amount: selectedProduct.price,
-      bot: supabase_botId,
-      product: selectedProduct.id,
-    });
-    UpdatePaymentWithChatId(userid, paymentInfo.id ?? 0);
-
-    const pixCode = paymentInfo.point_of_interaction?.transaction_data?.qr_code;
-    await this.sendpixMessage(pixCode, chatId, messageId, bot);
-    // Store payment info for verification
-    this.paymentData.set(chatId, {
-      pixCode: pixCode ?? "",
-      timestamp: new Date(),
-      status: "pending",
-      payment_id: paymentInfo.id ?? 0,
-    });
-
+    try{
+      const paymentInfo = await createPayment({
+        buyer_email: userData.email,
+        description: selectedProduct.name,
+        paymentMethodId: "pix",
+        transaction_amount: selectedProduct.price,
+        bot: supabase_botId,
+        product: selectedProduct.id,
+      });
+      UpdatePaymentWithChatId(userid, paymentInfo.id ?? 0);
+  
+      const pixCode = paymentInfo.point_of_interaction?.transaction_data?.qr_code;
+      await this.sendpixMessage(pixCode, chatId, messageId, bot);
+      // Store payment info for verification
+      this.paymentData.set(chatId, {
+        pixCode: pixCode ?? "",
+        timestamp: new Date(),
+        status: "pending",
+        payment_id: paymentInfo.id ?? 0,
+      });
+  
+    }catch(e){
+      bot.sendMessage(chatId, 
+        "❌ Algo deu errado ao processar seu pagamento, tente novamente reiniciando o bot ou entre em contato com nosso suporte",
+        {
+          reply_markup: {
+            inline_keyboard: [this.getRestartButton(), [keyboardData2]],
+          }
+        }
+      )
+    }
+    
     // Clear user data
     this.userDataMap.delete(chatId);
   }
@@ -336,7 +349,8 @@ export class TelegramBotApp {
     bot: TelegramBot,
     supabase_botId: number,
   ): Promise<void> {
-    const info = await getPaymentInfoByTelegramId(userid, supabase_botId);
+    const selectedProduct = this.selectedProduct.get(userid);
+    const info = await getPaymentInfoByTelegramId(userid, supabase_botId, selectedProduct?.id || 0);
     if (!info) {
       await bot.editMessageCaption(
         "❌ Desculpe, não foi possível encontrar os dados do pagamento. Por favor, tente novamente.",
@@ -452,7 +466,7 @@ export class TelegramBotApp {
     // Send new welcome message with main menu
     bot.sendMessage(chatId, restartMessage, {reply_markup:
       {
-        inline_keyboard: getKeyboardsByGroup(botOptions)
+        inline_keyboard: [...getKeyboardsByGroup(botOptions),[keyboardData2]]
       }
     });
   }
@@ -471,12 +485,12 @@ export class TelegramBotApp {
         chat_id: chatId,
         message_id: messageId,
         reply_markup: {
-          inline_keyboard: getKeyboardsByGroup(productsGroup),
+          inline_keyboard: [...getKeyboardsByGroup(productsGroup),[keyboardData2]],
         },
       });
     } else {
       bot.sendMessage(chatId, text, {reply_markup: {
-        inline_keyboard: getKeyboardsByGroup(productsGroup),
+        inline_keyboard: [...getKeyboardsByGroup(productsGroup),[keyboardData2]],
       }});
     }
   }
@@ -509,9 +523,10 @@ export class TelegramBotApp {
     bot: TelegramBot,
     supabase_botId: number,
   ) {
-    const info = await getPaymentInfoByTelegramId(userid, supabase_botId);
+    const selectedProduct = this.selectedProduct.get(userid);
+    const info = await getPaymentInfoByTelegramId(userid, supabase_botId, selectedProduct?.id || 0);
     const isExpire = await isExpired(userid);
-    const selectedProduct = this.selectedProduct.get(supabase_botId);
+    
     if (info) {
       if (info.status == "pending") {
         const pixCode = info.point_of_interaction?.transaction_data?.qr_code;
@@ -531,13 +546,13 @@ export class TelegramBotApp {
         }
       }
     }
-    const defaultText = "Área VIP 🌟\n\n" +
+    const text = selectedProduct?.description + "\n\n Escolha sua forma de pagamento:" || "Área VIP 🌟\n\n" +
       "Benefícios exclusivos para membros VIP:\n" +
       "• Conteúdo exclusivo\n" +
       "• Descontos especiais\n\n";
     bot.sendMessage(
       chatId,
-      selectedProduct?.description || defaultText,
+      text,
       {
         reply_markup: {
           inline_keyboard: [this.getPixButton(), this.getBackButton()],

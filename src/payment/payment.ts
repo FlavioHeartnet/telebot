@@ -17,7 +17,7 @@ export default async function createPayment(req: PaymentParam) {
   try {
     const mpToken = await getPaymentToken(req.bot || 0);
     const payment = await mpSetup(mpToken);
-    const app_fee = splitPaymentFee(req.transaction_amount);
+    const app_fee = splitPaymentFee(req.transaction_amount).toFixed(2);
     const paymentResp = await payment.create({
       body: {
         transaction_amount: req.transaction_amount,
@@ -26,7 +26,7 @@ export default async function createPayment(req: PaymentParam) {
         payer: {
           email: req.buyer_email,
         },
-        application_fee: app_fee,
+        application_fee: parseFloat(app_fee),
       },
       requestOptions: { idempotencyKey: crypto.randomUUID() },
     });
