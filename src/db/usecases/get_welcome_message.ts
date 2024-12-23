@@ -9,7 +9,7 @@ export async function getWelcomeMessage(bot_id: number): Promise<string> {
   dbErrorsCheck(error);
 
   if (data && data.length > 0) {
-    return data[0].welcome_message as string;
+    return data[0].welcome_message ? data[0].welcome_message as string: "Bem-vindo! Por favor, escolha uma das opções abaixo:";
   } else {
     return "Bem-vindo! Por favor, escolha uma das opções abaixo:";
   }

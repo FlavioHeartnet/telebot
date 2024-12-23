@@ -57,14 +57,8 @@ export class TelegramBotApp {
   private userDataMap: Map<number, UserData> = new Map();
   private paymentData: Map<number, PaymentData> = new Map();
   private bots: Map<number, BotInstance> = new Map();
-  private selectedProduct!: Map<number, SupabaseProduct | null>;
-  private readonly mainKeyboard: { reply_markup: InlineKeyboardMarkup } = {
-    reply_markup: {
-      inline_keyboard: [
-        [keyboardData2],
-      ],
-    },
-  };
+  private selectedProduct: Map<number, SupabaseProduct | null> = new Map();
+  
 
   constructor() {}
 
@@ -91,7 +85,7 @@ export class TelegramBotApp {
 
     bot.onText(/\/restart/, (msg) => {
       const chatId = msg.chat.id;
-      this.handleRestart(chatId, bot);
+      this.handleRestart(chatId, bot, bot_id);
     });
 
     bot.on("message", (msg) => {
@@ -141,7 +135,7 @@ export class TelegramBotApp {
           this.confirmPixPayment(chatId, messageId, userid, bot, bot_id);
           break;
         case "cancel_pix":
-          this.cancelPixPayment(chatId, messageId, bot);
+          this.cancelPixPayment(chatId, messageId, bot, bot_id);
           break;
         case "support":
           this.handleSupport(chatId, messageId, bot);
@@ -153,7 +147,7 @@ export class TelegramBotApp {
           this.sendMainMenu(chatId, bot, messageId, botProducts);
           break;
         case "restart":
-          this.handleRestart(chatId, bot);
+          this.handleRestart(chatId, bot, bot_id);
           break;
         case "verify_payment":
           this.verifyPayment(chatId, messageId, userid, bot, bot_id);
@@ -313,6 +307,7 @@ export class TelegramBotApp {
     chatId: number,
     messageId: number,
     bot: TelegramBot,
+    supabase_botId: number,
   ): void {
     // Clear user data
     this.userDataMap.delete(chatId);
@@ -322,8 +317,10 @@ export class TelegramBotApp {
     bot.editMessageText(message, {
       chat_id: chatId,
       message_id: messageId,
-      reply_markup: this.mainKeyboard.reply_markup,
     });
+    const keyboardOptions = this.bots.get(supabase_botId)?.botProducts;
+    if(!keyboardOptions){ return }
+    this.sendMainMenu(chatId, bot, messageId, keyboardOptions);
     this.paymentData.set(chatId, {
       pixCode: "",
       timestamp: new Date(),
@@ -440,7 +437,7 @@ export class TelegramBotApp {
     });
   }
 
-  private handleRestart(chatId: number, bot: TelegramBot): void {
+  private handleRestart(chatId: number, bot: TelegramBot, supabase_botId: number,): void {
     const restartMessage = "🔄 Bot reiniciado!\n\n" +
       "Comandos disponíveis:\n" +
       "/start - Iniciar conversa\n" +
@@ -450,9 +447,14 @@ export class TelegramBotApp {
     // Delete previous messages (optional)
     bot.deleteMessage(chatId, chatId)
       .catch(() => {}); // Ignore errors if message doesn't exist
-
+    const botOptions = this.bots.get(supabase_botId)?.botProducts
+    if(!botOptions){ return }
     // Send new welcome message with main menu
-    bot.sendMessage(chatId, restartMessage, this.mainKeyboard);
+    bot.sendMessage(chatId, restartMessage, {reply_markup:
+      {
+        inline_keyboard: getKeyboardsByGroup(botOptions)
+      }
+    });
   }
 
   private async sendMainMenu(
@@ -473,7 +475,9 @@ export class TelegramBotApp {
         },
       });
     } else {
-      bot.sendMessage(chatId, text, this.mainKeyboard);
+      bot.sendMessage(chatId, text, {reply_markup: {
+        inline_keyboard: getKeyboardsByGroup(productsGroup),
+      }});
     }
   }
 
