@@ -2,7 +2,6 @@ import { getPaymentToken } from "./get_payment_token.ts";
 import { mpSetup } from "./mp-setup.ts";
 import { dbErrorsCheck } from "../db/db_errors.ts";
 import { supabaseAdmin } from "../db/supabase.ts";
-import { config } from "../config.ts";
 import { splitPaymentFee } from "./split_payment.ts";
 
 export type PaymentParam = {
@@ -11,6 +10,7 @@ export type PaymentParam = {
   paymentMethodId: string;
   buyer_email: string;
   bot?: number;
+  product: number;
 };
 
 export default async function createPayment(req: PaymentParam) {
@@ -39,7 +39,8 @@ export default async function createPayment(req: PaymentParam) {
       payment_status: info.status_detail,
       transaction_amount: req.transaction_amount,
       application_fee: app_fee,
-      bot: req.bot
+      bot: req.bot,
+      product: req.product
     });
     dbErrorsCheck(error);
     return paymentResp;

@@ -9,6 +9,8 @@ import getPaymentInfoByTelegramId from "./payment/check_payment_user";
 import activatePlan from "./db/usecases/activate_plan";
 import isExpired from "./db/usecases/verify_expired";
 import { createInvite } from "./botActions/createInvite";
+import { getWelcomeMessage } from "./db/usecases/get_welcome_message";
+import { findProductFromGrouped, getKeyboardsByGroup, getKeyboardsByProducts, getProductsGroupsByBot, GroupedProducts, ProductType, SupabaseProduct } from "./db/usecases/get_products_bot";
 
 interface PaymentData {
   payment_id: number;
@@ -31,10 +33,7 @@ interface UserData {
   telegram_id?: number;
   botId?: number;
 }
-const keyboardData1: InlineKeyboardButton = {
-  text: "VIP 🌟",
-  callback_data: "vip",
-};
+
 const keyboardData2: InlineKeyboardButton = {
   text: "Suporte 💬",
   callback_data: "support",
@@ -43,15 +42,17 @@ interface BotInstance {
   bot: TelegramBot;
   bot_id:number;
   groupId?: string;
+  botProducts: GroupedProducts;
+  selectedProduct?: SupabaseProduct | null;
 }
 export class TelegramBotApp {
   private userDataMap: Map<number, UserData> = new Map();
   private paymentData: Map<number, PaymentData> = new Map();
-  private bots: Map<string, BotInstance> = new Map();
+  private bots: Map<number, BotInstance> = new Map();
+  private selectedProduct!: Map<number, SupabaseProduct | null>;
   private readonly mainKeyboard: { reply_markup: InlineKeyboardMarkup } = {
     reply_markup: {
       inline_keyboard: [
-        [keyboardData1],
         [keyboardData2],
       ],
     },
@@ -61,21 +62,23 @@ export class TelegramBotApp {
 
   public initializeBot(config: BotConfig){
     const bot = new TelegramBot(config.token, config.options);
+    const botProducts = getProductsGroupsByBot(config.id);
     const instance = {
       bot: bot,
       bot_id: config.id,
-      groupId: config.groupId
+      groupId: config.groupId,
+      botProducts: botProducts
     }
-    this.bots.set(config.token, instance);
+    this.bots.set(config.id, instance);
     this.initializeHandlers(instance);
   }
 
   private initializeHandlers(instance: BotInstance): void {
-    const { bot, bot_id } = instance;
+    const { bot, bot_id, botProducts} = instance;
     // Start command - shows the main menu
     bot.onText(/\/start/, (msg) => {
       const chatId = msg.chat.id;
-      this.sendMainMenu(chatId, bot);
+      this.sendMainMenu(chatId, bot, bot_id, botProducts);
     });
 
     bot.onText(/\/restart/, (msg) => {
@@ -103,6 +106,19 @@ export class TelegramBotApp {
 
       // Answer the callback query to remove the loading state
       bot.answerCallbackQuery(callbackQuery.id);
+      if(callbackQuery.data){
+        const productMatch = callbackQuery.data.match(/^product_(channel|single|supergroup)_(\d+)$/);
+  
+        if (productMatch) {
+          const [_, type, idStr] = productMatch;
+          const id = parseInt(idStr, 10);
+          const selectedProduct = findProductFromGrouped(type as ProductType, id, botProducts);
+          this.selectedProduct.set(userid || 0, selectedProduct)
+          this.handleProduct(chatId, messageId, userid, bot, bot_id);
+          return;
+        }
+      }
+      
 
       switch (callbackQuery.data) {
         case "pix":
@@ -114,9 +130,6 @@ export class TelegramBotApp {
         case "cancel_pix":
           this.cancelPixPayment(chatId, messageId, bot);
           break;
-        case "vip":
-          this.handleVIP(chatId, messageId, userid, bot, bot_id);
-          break;
         case "support":
           this.handleSupport(chatId, messageId, bot);
           break;
@@ -124,7 +137,7 @@ export class TelegramBotApp {
           this.handleAbout(chatId, messageId, bot);
           break;
         case "back":
-          this.sendMainMenu(chatId, bot, messageId);
+          this.sendMainMenu(chatId, bot, messageId, botProducts);
           break;
         case "restart":
           this.handleRestart(chatId, bot);
@@ -132,8 +145,54 @@ export class TelegramBotApp {
         case "verify_payment":
           this.verifyPayment(chatId, messageId, userid, bot, bot_id);
           break;
+        case "product_channels":
+        case "product_supergroups":
+          this.handleGroupProductChannels(chatId, messageId, bot, bot_id); 
+          break;
+        case "product_singles":
+          this.handleGroupProductPacks(chatId, bot, bot_id); 
+          break; 
       }
     });
+  }
+  handleGroupProductPacks(chatId: number, bot: TelegramBot, bot_id: number) {
+    const products = this.bots.get(bot_id)?.botProducts;
+    
+    if(products){
+      const packsOptions = getKeyboardsByProducts(products.single);
+      
+
+      packsOptions.forEach((keyboard, i) => {
+        const pack = products.single[i];
+        bot.sendMessage(chatId,
+          pack.name + "\n\n"+
+          pack.description,
+          {
+            reply_markup: {
+              inline_keyboard: [keyboard]
+            }
+          }
+    
+        );
+      });
+      
+    }
+  }
+  handleGroupProductChannels(chatId: number, messageId: number, bot: TelegramBot, bot_id: number) {
+    const products = this.bots.get(bot_id)?.botProducts;
+    if(products){
+      bot.editMessageText("Selecione uma opção abaixo:",
+        {
+          message_id: messageId,
+          chat_id: chatId,
+          reply_markup: {
+            inline_keyboard: getKeyboardsByProducts([...products.channel, ...products.supergroup])
+          }
+        }
+  
+      );
+    }
+    
   }
   private handleUserInput(
     chatId: number,
@@ -172,18 +231,23 @@ export class TelegramBotApp {
     messageId: number,
     userid: number = 0,
     bot: TelegramBot,
-    supabase_botId:number
+    supabase_botId:number,
   ): Promise<void> {
     const userData = this.userDataMap.get(chatId);
     if (!userData?.email) {
       return this.handlePix(chatId, messageId, bot);
     }
+    const selectedProduct = this.bots.get(userid)?.selectedProduct;
+    if(!selectedProduct){
+      throw new Error("Product not found");
+    }
     const paymentInfo = await createPayment({
       buyer_email: userData.email,
-      description: "My Product",
+      description: selectedProduct.name,
       paymentMethodId: "pix",
-      transaction_amount: 2,
-      bot: supabase_botId
+      transaction_amount: selectedProduct.price,
+      bot: supabase_botId,
+      product: selectedProduct.id
     });
     UpdatePaymentWithChatId(userid, paymentInfo.id ?? 0);
 
@@ -372,14 +436,16 @@ export class TelegramBotApp {
     bot.sendMessage(chatId, restartMessage, this.mainKeyboard);
   }
 
-  private sendMainMenu(chatId: number,bot: TelegramBot ,messageId?: number ): void {
-    const text = "Bem-vindo! Por favor, escolha uma das opções abaixo:";
-
+   private async sendMainMenu(chatId: number,bot: TelegramBot ,supabase_botId: number,productsGroup: GroupedProducts,messageId?: number ): Promise<void> {
+    const text = await getWelcomeMessage(supabase_botId);
+    
     if (messageId) {
       bot.editMessageText(text, {
         chat_id: chatId,
         message_id: messageId,
-        ...this.mainKeyboard,
+        reply_markup: {
+          inline_keyboard: getKeyboardsByGroup(productsGroup)
+        },
       });
     } else {
       bot.sendMessage(chatId, text, this.mainKeyboard);
@@ -407,11 +473,12 @@ export class TelegramBotApp {
     return emailRegex.test(email);
   }
 
-  private async handleVIP(
+  private async handleProduct(
 chatId: number, messageId: number, userid: number = 0, bot: TelegramBot, supabase_botId: number
   ) {
     const info = await getPaymentInfoByTelegramId(userid, supabase_botId);
     const isExpire = await isExpired(userid);
+    const selectedProduct = this.selectedProduct.get(supabase_botId);
     if (info) {
       if (info.status == "pending") {
         const pixCode = info.point_of_interaction?.transaction_data?.qr_code;
@@ -431,13 +498,13 @@ chatId: number, messageId: number, userid: number = 0, bot: TelegramBot, supabas
         }
       }
     }
+    const defaultText = "Área VIP 🌟\n\n" +
+        "Benefícios exclusivos para membros VIP:\n" +
+        "• Conteúdo exclusivo\n" +
+        "• Descontos especiais\n\n";
     bot.sendMessage(
       chatId,
-      "Área VIP 🌟\n\n" +
-        "Benefícios exclusivos para membros VIP:\n" +
-        "• Atendimento prioritário\n" +
-        "• Conteúdo exclusivo\n" +
-        "• Descontos especiais\n\n",
+      selectedProduct?.description || defaultText,
       {
         reply_markup: {
           inline_keyboard: [this.getPixButton(), this.getBackButton()],
@@ -483,8 +550,8 @@ chatId: number, messageId: number, userid: number = 0, bot: TelegramBot, supabas
     }));
 }
 
-public getBotByToken(token: string): BotInstance | undefined {
-    return this.bots.get(token);
+public getBotByToken(bot_id: number): BotInstance | undefined {
+    return this.bots.get(bot_id);
 }
 
   public start(): void {
