@@ -1,5 +1,6 @@
 import { InlineKeyboardButton } from "node-telegram-bot-api";
-import { products } from "../../mocks/mock_products";
+import { supabaseAdmin } from "../supabase";
+import { dbErrorsCheck } from "../db_errors";
 export type ProductType = "channel" | "single" | "supergroup";
 export type SupabaseProduct = {
   id: number;
@@ -18,9 +19,23 @@ export interface GroupedProducts {
   single: SupabaseProduct[];
   supergroup: SupabaseProduct[];
 }
-export function getProductsGroupsByBot(bot_id: number) {
-  const botProducts = products.filter((a) => a.bot === bot_id);
-  return groupProductsByType(botProducts);
+async function getProductsFromDb(bot_id:number){
+  const {error , data} = await supabaseAdmin().from("products").select("*").eq("bot", bot_id);
+  dbErrorsCheck(error);
+  if(!data){
+    throw new Error("No products found");
+  }
+  return data as SupabaseProduct[];
+}
+export async function getProductsGroupsByBot(bot_id: number) {
+  try{
+    const products = await getProductsFromDb(bot_id);
+    const botProducts = products.filter((a) => a.bot === bot_id);
+    return groupProductsByType(botProducts);
+  }catch(e){
+    return {} as GroupedProducts;
+  }
+  
 }
 
 export function findProductFromGrouped(

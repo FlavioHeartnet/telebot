@@ -62,9 +62,9 @@ export class TelegramBotApp {
 
   constructor() {}
 
-  public initializeBot(config: BotConfig) {
+  public async initializeBot(config: BotConfig) {
     const bot = new TelegramBot(config.token, config.options);
-    const botProducts = getProductsGroupsByBot(config.id);
+    const botProducts = await getProductsGroupsByBot(config.id);
     const instance = {
       bot: bot,
       bot_id: config.id,
