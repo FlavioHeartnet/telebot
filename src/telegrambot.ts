@@ -369,7 +369,11 @@ export class TelegramBotApp {
     try {
       if (info.status == "approved") {
         await activatePlan(info.id ?? 0, info.status_detail);
-        const inviteLink = await createInvite(bot);
+        if(!selectedProduct) {
+          await bot.sendMessage(chatId, "❌ Algo deu errado com sua compra, por favor reinicie o bot: /restart");
+          return
+        }
+        const inviteLink = await createInvite(selectedProduct, bot, chatId);
         await bot.sendMessage(
           chatId,
           "✅ Pagamento aprovado com sucesso!\n\n" +
