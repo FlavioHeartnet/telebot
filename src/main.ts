@@ -1,5 +1,5 @@
 import { getUserBots } from "./db/usecases/get_user_bots";
-import { TelegramBotApp } from "./telegrambot";
+import { TelegramBotApp } from "./telegrambot.ts";
 import express from "express";
 
 const app = express();

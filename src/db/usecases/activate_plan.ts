@@ -7,7 +7,6 @@ export default async function activatePlan(
   payment_status: string = "",
 ) {
   try {
-
     const { data, error } = await supabaseAdmin().from("payments").select(
       "expire_in, product(id, type, content, period)",
     ).eq("payment_id", payment_id);

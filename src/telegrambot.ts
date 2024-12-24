@@ -2,14 +2,14 @@ import TelegramBot, {
   InlineKeyboardButton,
   InlineKeyboardMarkup,
 } from "node-telegram-bot-api";
-import createPayment from "./payment/payment";
+import createPayment from "./payment/payment.ts";
 import QRCode from "qrcode";
-import UpdatePaymentWithChatId from "./payment/update_payment";
-import getPaymentInfoByTelegramId from "./payment/check_payment_user";
-import activatePlan from "./db/usecases/activate_plan";
-import isExpired from "./db/usecases/verify_expired";
-import { createInvite } from "./botActions/createInvite";
-import { getWelcomeMessage } from "./db/usecases/get_welcome_message";
+import UpdatePaymentWithChatId from "./payment/update_payment.ts";
+import getPaymentInfoByTelegramId from "./payment/check_payment_user.ts";
+import activatePlan from "./db/usecases/activate_plan.ts";
+import isExpired from "./db/usecases/verify_expired.ts";
+const createInvite = import("./botActions/createInvite.mts");
+import { getWelcomeMessage } from "./db/usecases/get_welcome_message.ts";
 import {
   findProductFromGrouped,
   getKeyboardsByGroup,
@@ -18,7 +18,7 @@ import {
   GroupedProducts,
   ProductType,
   SupabaseProduct,
-} from "./db/usecases/get_products_bot";
+} from "./db/usecases/get_products_bot.ts";
 
 interface PaymentData {
   payment_id: number;
@@ -58,7 +58,6 @@ export class TelegramBotApp {
   private paymentData: Map<number, PaymentData> = new Map();
   private bots: Map<number, BotInstance> = new Map();
   private selectedProduct: Map<number, SupabaseProduct | null> = new Map();
-  
 
   constructor() {}
 
@@ -248,10 +247,13 @@ export class TelegramBotApp {
     }
     const selectedProduct = this.selectedProduct.get(userid);
     if (!selectedProduct) {
-      bot.sendMessage(chatId, "❌ Algo deu errado com sua compra, por favor reinicie o bot: /restart");
-      return
+      bot.sendMessage(
+        chatId,
+        "❌ Algo deu errado com sua compra, por favor reinicie o bot: /restart",
+      );
+      return;
     }
-    try{
+    try {
       const paymentInfo = await createPayment({
         buyer_email: userData.email,
         description: selectedProduct.name,
@@ -261,8 +263,9 @@ export class TelegramBotApp {
         product: selectedProduct.id,
       });
       UpdatePaymentWithChatId(userid, paymentInfo.id ?? 0);
-  
-      const pixCode = paymentInfo.point_of_interaction?.transaction_data?.qr_code;
+
+      const pixCode = paymentInfo.point_of_interaction?.transaction_data
+        ?.qr_code;
       await this.sendpixMessage(pixCode, chatId, messageId, bot);
       // Store payment info for verification
       this.paymentData.set(chatId, {
@@ -271,18 +274,18 @@ export class TelegramBotApp {
         status: "pending",
         payment_id: paymentInfo.id ?? 0,
       });
-  
-    }catch(e){
-      bot.sendMessage(chatId, 
+    } catch (e) {
+      bot.sendMessage(
+        chatId,
         "❌ Algo deu errado ao processar seu pagamento, tente novamente reiniciando o bot ou entre em contato com nosso suporte",
         {
           reply_markup: {
             inline_keyboard: [this.getRestartButton(), [keyboardData2]],
-          }
-        }
-      )
+          },
+        },
+      );
     }
-    
+
     // Clear user data
     this.userDataMap.delete(chatId);
   }
@@ -332,7 +335,7 @@ export class TelegramBotApp {
       message_id: messageId,
     });
     const keyboardOptions = this.bots.get(supabase_botId)?.botProducts;
-    if(!keyboardOptions){ return }
+    if (!keyboardOptions) return;
     this.sendMainMenu(chatId, bot, messageId, keyboardOptions);
     this.paymentData.set(chatId, {
       pixCode: "",
@@ -350,7 +353,11 @@ export class TelegramBotApp {
     supabase_botId: number,
   ): Promise<void> {
     const selectedProduct = this.selectedProduct.get(userid);
-    const info = await getPaymentInfoByTelegramId(userid, supabase_botId, selectedProduct?.id || 0);
+    const info = await getPaymentInfoByTelegramId(
+      userid,
+      supabase_botId,
+      selectedProduct?.id || 0,
+    );
     if (!info) {
       await bot.editMessageCaption(
         "❌ Desculpe, não foi possível encontrar os dados do pagamento. Por favor, tente novamente.",
@@ -369,11 +376,18 @@ export class TelegramBotApp {
     try {
       if (info.status == "approved") {
         await activatePlan(info.id ?? 0, info.status_detail);
-        if(!selectedProduct) {
-          await bot.sendMessage(chatId, "❌ Algo deu errado com sua compra, por favor reinicie o bot: /restart");
-          return
+        if (!selectedProduct) {
+          await bot.sendMessage(
+            chatId,
+            "❌ Algo deu errado com sua compra, por favor reinicie o bot: /restart",
+          );
+          return;
         }
-        const inviteLink = await createInvite(selectedProduct, bot, chatId);
+        const inviteLink = await (await createInvite).createInvite(
+          selectedProduct,
+          bot,
+          chatId,
+        );
         await bot.sendMessage(
           chatId,
           "✅ Pagamento aprovado com sucesso!\n\n" +
@@ -455,7 +469,11 @@ export class TelegramBotApp {
     });
   }
 
-  private handleRestart(chatId: number, bot: TelegramBot, supabase_botId: number,): void {
+  private handleRestart(
+    chatId: number,
+    bot: TelegramBot,
+    supabase_botId: number,
+  ): void {
     const restartMessage = "🔄 Bot reiniciado!\n\n" +
       "Comandos disponíveis:\n" +
       "/start - Iniciar conversa\n" +
@@ -465,13 +483,13 @@ export class TelegramBotApp {
     // Delete previous messages (optional)
     bot.deleteMessage(chatId, chatId)
       .catch(() => {}); // Ignore errors if message doesn't exist
-    const botOptions = this.bots.get(supabase_botId)?.botProducts
-    if(!botOptions){ return }
+    const botOptions = this.bots.get(supabase_botId)?.botProducts;
+    if (!botOptions) return;
     // Send new welcome message with main menu
-    bot.sendMessage(chatId, restartMessage, {reply_markup:
-      {
-        inline_keyboard: [...getKeyboardsByGroup(botOptions),[keyboardData2]]
-      }
+    bot.sendMessage(chatId, restartMessage, {
+      reply_markup: {
+        inline_keyboard: [...getKeyboardsByGroup(botOptions), [keyboardData2]],
+      },
     });
   }
 
@@ -489,13 +507,19 @@ export class TelegramBotApp {
         chat_id: chatId,
         message_id: messageId,
         reply_markup: {
-          inline_keyboard: [...getKeyboardsByGroup(productsGroup),[keyboardData2]],
+          inline_keyboard: [...getKeyboardsByGroup(productsGroup), [
+            keyboardData2,
+          ]],
         },
       });
     } else {
-      bot.sendMessage(chatId, text, {reply_markup: {
-        inline_keyboard: [...getKeyboardsByGroup(productsGroup),[keyboardData2]],
-      }});
+      bot.sendMessage(chatId, text, {
+        reply_markup: {
+          inline_keyboard: [...getKeyboardsByGroup(productsGroup), [
+            keyboardData2,
+          ]],
+        },
+      });
     }
   }
 
@@ -528,9 +552,13 @@ export class TelegramBotApp {
     supabase_botId: number,
   ) {
     const selectedProduct = this.selectedProduct.get(userid);
-    const info = await getPaymentInfoByTelegramId(userid, supabase_botId, selectedProduct?.id || 0);
+    const info = await getPaymentInfoByTelegramId(
+      userid,
+      supabase_botId,
+      selectedProduct?.id || 0,
+    );
     const isExpire = await isExpired(userid, selectedProduct?.id || 0);
-    
+
     if (info) {
       if (info.status == "pending") {
         const pixCode = info.point_of_interaction?.transaction_data?.qr_code;
@@ -550,10 +578,12 @@ export class TelegramBotApp {
         }
       }
     }
-    const text = selectedProduct?.description + "\n\n Escolha sua forma de pagamento:" || "Área VIP 🌟\n\n" +
-      "Benefícios exclusivos para membros VIP:\n" +
-      "• Conteúdo exclusivo\n" +
-      "• Descontos especiais\n\n";
+    const text =
+      selectedProduct?.description + "\n\n Escolha sua forma de pagamento:" ||
+      "Área VIP 🌟\n\n" +
+        "Benefícios exclusivos para membros VIP:\n" +
+        "• Conteúdo exclusivo\n" +
+        "• Descontos especiais\n\n";
     bot.sendMessage(
       chatId,
       text,

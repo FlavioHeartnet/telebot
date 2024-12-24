@@ -1,4 +1,4 @@
-import { BotConfig } from "../../telegrambot";
+import { BotConfig } from "../../telegrambot.ts";
 import { dbErrorsCheck } from "../db_errors";
 import { supabaseAdmin } from "../supabase";
 

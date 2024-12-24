@@ -8,7 +8,7 @@ test("split price function should return 15", () => {
 });
 
 test("Time should be pu 3 months ahead", () => {
-  const date = getTimeToExpire(3)
-  console.log(date)
-  expect(date).toBeInstanceOf(Date)
+  const date = getTimeToExpire(3);
+  console.log(date);
+  expect(date).toBeInstanceOf(Date);
 });
