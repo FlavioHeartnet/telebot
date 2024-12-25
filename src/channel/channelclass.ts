@@ -11,7 +11,6 @@ function prompt(question: string): Promise<string> {
     input: process.stdin,
     output: process.stdout,
   });
-
   return new Promise((resolve) => {
     rl.question(question, (answer) => {
       rl.close();
@@ -55,10 +54,8 @@ class TelegramChannelCreator {
         await prompt("Please enter the code you received: "),
       onError: (err) => console.log(err),
     });
-
     return this.stringSession.save();
   }
-
   async createChannel(config: ChannelCreationConfig): Promise<string> {
     try {
       // Create the channel
@@ -76,7 +73,8 @@ class TelegramChannelCreator {
       if (!channel || !("id" in channel)) {
         throw new Error("Failed to create channel");
       }
-
+      const user = await this.client.getMe()
+      user.id
       const channelId = channel.id.toString();
 
       // Set username if provided

@@ -8,7 +8,7 @@ import UpdatePaymentWithChatId from "./payment/update_payment.ts";
 import getPaymentInfoByTelegramId from "./payment/check_payment_user.ts";
 import activatePlan from "./db/usecases/activate_plan.ts";
 import isExpired from "./db/usecases/verify_expired.ts";
-const createInvite = import("./botActions/createInvite.mts");
+import { createInvite } from "./botActions/createInvite.ts";
 import { getWelcomeMessage } from "./db/usecases/get_welcome_message.ts";
 import {
   findProductFromGrouped,
@@ -383,7 +383,7 @@ export class TelegramBotApp {
           );
           return;
         }
-        const inviteLink = await (await createInvite).createInvite(
+        const inviteLink = await createInvite(
           selectedProduct,
           bot,
           chatId,
