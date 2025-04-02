@@ -3,7 +3,7 @@ import { TelegramBotApp } from "./telegrambot.ts";
 import express from "express";
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 3001;
 
 app.get("/bot/status", (req, res) => {
   res.status(200).json({
@@ -19,10 +19,12 @@ async function startServer() {
   try {
     const configs = await getUserBots();
 
-    if (configs) {
+    if (configs && configs.length > 0) {
       configs.forEach((config) => {
         // Start the bots
         bot.initializeBot(config);
+        console.log("🤖 All bots initialized");
+        
       });
     } else {
       console.log("Sem Bots ativos para inicializar.");
@@ -30,8 +32,10 @@ async function startServer() {
 
     app.listen(port, () => {
       console.log(`🚀 Server is running on port ${port}`);
-      console.log("🤖 All bots initialized");
+      
     });
+
+    
   } catch (error) {
     console.error("Failed to start server:", error);
     process.exit(1);
