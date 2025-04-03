@@ -58,7 +58,7 @@ export class TelegramBotApp {
   private paymentData: Map<number, PaymentData> = new Map();
   private bots: Map<number, BotInstance> = new Map();
   private selectedProduct: Map<number, SupabaseProduct | null> = new Map();
-
+  public botName: string = "NobleSpace Bot";
   constructor() {}
 
   public async initializeBot(config: BotConfig) {
@@ -70,6 +70,7 @@ export class TelegramBotApp {
       groupId: config.groupId,
       botProducts: botProducts,
     };
+    this.botName = (await bot.getMe()).first_name;
     this.bots.set(config.id, instance);
     this.initializeHandlers(instance);
   }
