@@ -1,6 +1,5 @@
-import { b } from "vitest/dist/chunks/suite.B2jumIFP.js";
 import { supabaseAdmin } from "./db/supabase.ts";
-import { getUserBots } from "./db/usecases/get_user_bots";
+import { getUserBots } from "./db/usecases/get_user_bots.ts";
 import { BotConfig, TelegramBotApp } from "./telegrambot.ts";
 import express from "express";
 
